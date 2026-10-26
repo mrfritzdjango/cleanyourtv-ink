@@ -8,6 +8,7 @@ on:
   push:
     branches: [main]
     paths: ["addons/**", "ink/**"]
+  workflow_dispatch:   # Actions › Add-ons › Run workflow: builds what the last commit changed
 
 permissions:
   contents: read

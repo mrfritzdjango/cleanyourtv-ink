@@ -1,52 +1,104 @@
-# Clean Your TV · Ink edition
+<h1 align="center">Clean Your TV · Ink edition</h1>
 
-A fork of [Clean Your TV](https://github.com/Gathin23/cleanyourtv) that turns the clean launcher into an **e-ink
-Home**, adds **Today** (your Google Calendar and Tasks on the TV) and the **Ink Menagerie**: 50 Malaysian animals,
-drawn in ink and halftone, that each move the way the real animal does.
+<p align="center"><b>Your Android TV as a sheet of e-ink paper.</b><br>
+A text-only Home, your Google Calendar and Tasks, the song that is playing, and 50 ink animals that move the way the
+real ones do. No ads, no root, nothing uninstalled, one line to undo.</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Android%20TV-8%2B-15181e?style=flat&labelColor=15181e&color=cfcec8" alt="Android TV 8 and later">
+  <img src="https://img.shields.io/badge/root-not%20needed-15181e?style=flat&labelColor=15181e&color=cfcec8" alt="No root needed">
+  <img src="https://img.shields.io/badge/launcher-no%20internet%20permission-15181e?style=flat&labelColor=15181e&color=cfcec8" alt="The launcher has no internet permission">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/licence-MIT-15181e?style=flat&labelColor=15181e&color=cfcec8" alt="MIT licence"></a>
+</p>
 
 <p align="center">
   <img src="docs/switches/ink_home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the song playing at the top right">
   <img src="addons/morning-board/screenshot.jpg" width="49%" alt="The Ink Menagerie screensaver on a Chromecast with Google TV: a gaur (Seladang) in light ink on a dark page, beside the big clock and the date">
 </p>
 
-- **E-ink Home.** One text list (Calendar, Tasks, your apps, Screensaver), a big clock, and today's events or open
-  tasks above it when Calendar or Tasks is selected. Selection is an inverted ink bar; nothing slides, fades or
-  glows. Every 30 seconds an animal crosses the screen. [docs/ink-home.md](docs/ink-home.md)
-- **Today.** Calendar, Tasks (OK ticks a task off in Google Tasks) and a morning board, fed by a small Apps Script
-  in your own Google account: no Google sign-in on the TV, nothing shared with anyone.
-  [addons/morning-board](addons/morning-board/)
-- **Now playing.** While Spotify plays, the song sits at the top right of Home and the screensaver: its cover
-  redrawn in ink dots, the title and the artist. With the Spotify row selected it grows into a larger view with a
-  progress line; hold OK to pause or play. [addons/morning-board](addons/morning-board/README.md)
-- **Ink Menagerie screensaver.** From the Malayan tapir to the whale shark and TITANE the titan triggerfish, each
-  animal with a pass across Home and an outing on the screensaver, researched and animated one by one. Left and
-  right on the remote switch animals. Drawings in [art/](addons/morning-board/art/), moves in
-  [motion/](addons/morning-board/motion/).
+A fork of [Clean Your TV](https://github.com/Gathin23/cleanyourtv), which strips the bloatware from any Android TV
+or Google TV over Wi-Fi and replaces the ad-filled home screen with a clean launcher. This edition keeps all of that
+and redraws Home as e-ink.
 
-Everything else (debloating the TV safely over Wi-Fi, the restore script, the TV lists) is upstream's, unchanged,
-and documented below.
+## What you get
 
-## Install the Ink edition
+- **An e-ink Home.** One list (Calendar, Tasks, your apps, Screensaver, Settings) and a big clock, in light ink on a
+  dark page or dark ink on paper. The selected row is an inverted ink bar; nothing slides, fades or glows.
+  [More](docs/ink-home.md)
+- **Your day at a glance.** With Calendar or Tasks selected, today's events or your open tasks appear beside the
+  list. Open them for the full Calendar and Tasks screens, where OK ticks a task off in Google Tasks. A small Apps
+  Script in your own Google account feeds them: no Google sign-in on the TV, nothing shared with anyone.
+  [Today add-on](addons/morning-board/README.md)
+- **Now playing and last watched.** While Spotify plays, the song sits at the top right with its cover in shades of
+  ink and three little bars that move with the music. Select the Spotify row for a larger view with a progress line;
+  hold OK to pause or play. Select YouTube, Netflix, Prime Video, Apple TV or Hotstar and the top right shows the
+  last thing you watched there.
+- **The Ink Menagerie.** 50 Malaysian land and sea animals, from the Malayan tapir to the whale shark and TITANE the
+  titan triggerfish, each drawn in ink and halftone and animated from field research. One crosses Home every 30
+  seconds; on the screensaver they go out on their own outings and come home. Left and right switch animals.
+- **Choose your apps on the TV.** Settings › Home apps adds, moves and removes the apps on Home, from every app on
+  the TV, with no rebuild.
+- **Upstream's cleanup, unchanged.** Safe debloating (disable, never uninstall), the restore script and lists for
+  hundreds of TV models: everything below the line.
 
-You need a computer with JDK 17 and the Android SDK (platform 34), and ADB access to the TV (upstream's
-[Quick start](#quick-start) covers turning on debugging).
+## Set it up
 
-1. **The Apps Script** (optional, for Calendar and Tasks): five steps in
-   [addons/morning-board/README.md](addons/morning-board/README.md#1-the-apps-script-your-google-account), then
-   copy `addons/morning-board/board.properties.example` to `board.properties` and fill in the URL and key.
-2. **Today**: `cd addons/morning-board && ./gradlew assembleRelease`, then install
-   `app/build/outputs/apk/release/app-release.apk` on the TV.
-3. **The launcher**: `ink_home` is already on in `launcher/app/src/main/res/values/config.xml`; put your own apps in
-   `dock_apps` there. Then `TV_HOST=<tv ip> launcher/build-and-install.sh`. Build both apps on the same computer:
-   the launcher reads Today's agenda through a permission only an app signed with the same key gets.
-   A Chromecast with Google TV only offers Wireless debugging, which needs `adb pair` first (the upstream tools
-   can't pair); after that, `adb install -r` the two APKs.
-4. **The screensaver**: `settings put secure screensaver_components io.github.mrfritzdjango.morningboard/.AnimalDream`
-   over ADB ([details](addons/morning-board/README.md#3-the-screensaver)).
-5. **Now playing** (optional): `cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`
-   over ADB, once. Today reads only the media session, never your notifications.
+**With a coding agent (easiest).** Clone this repository, open Claude Code, Codex or Gemini CLI in it, and paste:
 
-Tested on a Chromecast with Google TV HD (Google TV 14). `ink_home` false gives back upstream's launcher.
+```
+Set up the Ink edition of Clean Your TV on my TV: the e-ink Home, the Today add-on and the animal
+screensaver. Read INK-PROMPT.md in this repository and follow it step by step. Ask me before anything
+that changes the TV, and stop if something refuses.
+```
+
+The agent connects to the TV over Wi-Fi, asks what you want, builds both apps on your computer and installs them.
+The whole procedure, including how to undo every step, is in [INK-PROMPT.md](INK-PROMPT.md). To debloat the TV too,
+run upstream's [PROMPT.md](PROMPT.md) first.
+
+**By hand.** You need JDK 17, the Android SDK (platform 34) and ADB access to the TV.
+
+```bash
+git clone https://github.com/mrfritzdjango/cleanyourtv-ink.git && cd cleanyourtv-ink
+```
+
+1. **Calendar and Tasks** (optional): set up the Apps Script
+   ([five steps](addons/morning-board/README.md#1-the-apps-script-your-google-account)), then copy
+   `addons/morning-board/board.properties.example` to `board.properties` and fill in its URL and key.
+2. **Today**: `cd addons/morning-board && ./gradlew assembleRelease` and install
+   `app/build/outputs/apk/release/app-release.apk`.
+3. **The launcher**: `TV_HOST=<tv ip> launcher/build-and-install.sh` builds it, installs it and makes it Home. Build
+   both apps on the same computer: the launcher reads Today's agenda through a permission only an app signed with the
+   same key gets. On a Chromecast with Google TV (Wireless debugging only), `adb pair` first, then `adb install -r`
+   both APKs and `adb shell cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity`.
+4. **The screensaver**: `adb shell settings put secure screensaver_components io.github.mrfritzdjango.morningboard/.AnimalDream`
+   ([details](addons/morning-board/README.md#3-the-screensaver)).
+5. **Now playing and last watched** (optional):
+   `adb shell cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`.
+
+Undo: set Home and the screensaver back, then uninstall the two apps (they are yours, not the TV's); the commands
+are in [INK-PROMPT.md](INK-PROMPT.md#8-how-to-undo-it). `ink_home` false in `config.xml` gives back upstream's
+launcher instead.
+
+## Privacy
+
+- The launcher has no internet permission. Everything it shows comes from Today, through a permission only your own
+  build of Today grants.
+- Today talks only to your own Apps Script, at the address and key built into your APK; keep both private.
+- Now playing reads the media session (title, artist, cover) of the apps listed in `options.xml`. It never reads
+  your notifications, and nothing leaves the TV.
+- No accounts, analytics or telemetry.
+
+## Tested on
+
+Chromecast with Google TV HD (boreal), Google TV 14. Other Android TVs from Android 8 should work; if you try one,
+an issue with the model and what you saw is welcome.
+
+## Credits
+
+Built on [Clean Your TV](https://github.com/Gathin23/cleanyourtv) by Gathin and its contributors (MIT). The font is
+[Atkinson Hyperlegible](https://brailleinstitute.org/freefont) by the Braille Institute (SIL OFL). The animals were
+drawn in code ([art/](addons/morning-board/art/)) and animated from field research
+([motion/](addons/morning-board/motion/)).
 
 ---
 

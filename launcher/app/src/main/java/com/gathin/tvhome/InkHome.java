@@ -3,9 +3,11 @@ package com.gathin.tvhome;
 import io.github.mrfritzdjango.ink.Animals;
 import io.github.mrfritzdjango.ink.CoverView;
 import io.github.mrfritzdjango.ink.Playing;
+import io.github.mrfritzdjango.ink.PlayingBars;
 import io.github.mrfritzdjango.ink.ShowView;
 import io.github.mrfritzdjango.ink.Shows;
 import io.github.mrfritzdjango.ink.SongBlock;
+import io.github.mrfritzdjango.ink.Watched;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -15,6 +17,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.database.ContentObserver;
 import android.database.Cursor;
@@ -33,7 +36,11 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.SpannableString;
+import android.text.Spanned;
 import android.text.TextUtils;
+import android.text.style.AbsoluteSizeSpan;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -46,6 +53,7 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.Collator;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -60,19 +68,25 @@ import java.util.concurrent.Executors;
 
 /**
  * ink_home (config.xml): Home as an e-ink page. A text list (Calendar and Tasks from the Today add-on, then the dock
- * apps, Screensaver and Settings), the big clock, and while Calendar or Tasks is selected a preview of it in the space
- * above the clock, read from Today's provider because Home has no network. While Spotify plays, Today's NowPlaying puts
- * the song at the top right (cover in ink dots, NOW PLAYING, song, artist), and with the Spotify row selected the
- * larger view takes its place: OK opens Spotify, OK held pauses or plays. Selection is an inverted ink bar; the only
+ * apps, Screensaver and Settings), the big clock, and while Calendar or Tasks is selected a preview of it in the middle
+ * column, level with the first row, read from Today's provider because Home has no network. While Spotify plays, Today's NowPlaying puts
+ * the song at the top right (cover in shades of ink, NOW PLAYING, song, artist), and with the Spotify row selected the
+ * larger view takes its place: OK opens Spotify, OK held pauses or plays. With a streaming app's row selected (YouTube,
+ * Netflix…), the top right shows that app's last show instead (LAST WATCHED: a 16:9 frame, the title, the episode and
+ * the app), for a week after it was watched. Selection is an inverted ink bar; the only
  * motion is the preview simply swapping, with no flash. Every 30 seconds an animal from Today crosses the whole screen in its own way
  * (its pass, played by ShowView over everything; keys still work under it), TITANE every fifth time. Night ink from
  * 19:30 to 07:00. The fonts, the animals and their shows are Today's own (read through createPackageContext), so the
  * launcher carries no copy of them. MainActivity hands its view, lifecycle and keys here and sets up nothing else.
+ * The Settings row opens ink pages over Home: Home apps, where the owner adds, moves and removes the app rows (kept by
+ * InkApps), and TV settings.
  */
 final class InkHome {
     static final String TODAY = "io.github.mrfritzdjango.morningboard";
+    private static final String STORE_PACKAGE = "com.android.vending";
     private static final Uri AGENDA = Uri.parse("content://" + TODAY + ".agenda/today");
     private static final Uri NOW = Uri.parse("content://" + TODAY + ".agenda/now");
+    private static final Uri WATCHED = Uri.parse("content://" + TODAY + ".agenda/watched");
     private static final float DESIGN_WIDTH = 1920f;
     private static final int PAPER = 0xFFE6E5DF;
     private static final int INK = 0xFF1C1C1A;
@@ -91,9 +105,34 @@ final class InkHome {
     /** The preview of the song, with its app's row selected. */
     private static final int SONG = 5;
     private static final int NONE = -1;
-    /** Design pixels: the previews' top, and their gap below the song block when it shows (its top follows the list's first row). */
+    /** The rows of the settings pages. */
+    private static final int HOME_APPS = 6;
+    private static final int TV_SETTINGS = 7;
+    private static final int EDIT = 8;
+    private static final int ALL = 9;
+    private static final int MOVE = 11;
+    private static final int REMOVE = 12;
+    private static final int OPEN = 13;
+    private static final int ADD = 15;
+    /** All apps: the Play Store, for apps that are not on the TV yet. */
+    private static final int STORE = 16;
+    /** A line that is read, not selected. */
+    private static final int NOTE = 14;
+    /** The pages over Home: Settings, then Home apps, from there All apps, and from either one app's page. */
+    private static final int P_HOME = 0;
+    private static final int P_SETTINGS = 1;
+    private static final int P_APPS = 2;
+    private static final int P_APP = 3;
+    private static final int P_ALL = 4;
+    /** Rows on screen at once on All apps; Down from the last one turns to the next page. */
+    private static final int PAGE_ROWS = 8;
+    /**
+     * Design pixels: the song preview's top on the right; Calendar's and Tasks', the middle of three equal columns
+     * between the list's edge (240) and the clock's (1680), which they fill.
+     */
     private static final float PREVIEW_TOP = 150;
-    private static final float UNDER_SONG = 148;
+    private static final float MIDDLE_LEFT = 720;
+    private static final float MIDDLE_WIDTH = 480;
     /** The song preview's progress line moves on this often. */
     private static final long TICK_MS = 10_000;
     private static final String TITANE = "titan-triggerfish";
@@ -120,6 +159,18 @@ final class InkHome {
     private final Random coin = new Random();
     private final List<String> dockApps;
     private final List<Item> items = new ArrayList<>();
+    /** The page open over Home, its title, rows and selected row, and the line under them. */
+    private int page = P_HOME;
+    private String title;
+    private final List<Item> rows = new ArrayList<>();
+    private int row;
+    private String hint;
+    /** Home apps: the row being moved with Up and Down, -1 when none. */
+    private int moving = -1;
+    /** The app whose page is open, and the list it was opened from (Home apps or All apps), which Back goes to. */
+    private Item editing;
+    private int editFrom = P_APPS;
+    private boolean today;
     private final float scale;
     private final Typeface regular;
     private final Typeface bold;
@@ -134,6 +185,7 @@ final class InkHome {
     private final ShowView passing;
     private final ContentObserver observer;
     private final ContentObserver songObserver;
+    private final ContentObserver watchedObserver;
     /** Today's animals (read again when Today is updated) and the index of their shows; the io thread's only. */
     private List<Animals.Animal> animals;
     private long animalsVersion;
@@ -146,6 +198,8 @@ final class InkHome {
     private LocalDate agendaDay;
     /** The song Today follows, null when none. */
     private Playing song;
+    /** The last show watched in each streaming app, from Today. */
+    private List<Watched> watched = new ArrayList<>();
     /** The song preview's moving parts, while it is on screen. */
     private ProgressLine progress;
     private TextView elapsed;
@@ -155,6 +209,8 @@ final class InkHome {
     private int selected;
     private int shownPreview = NONE;
     private int shownTop = -1;
+    private boolean shownMiddle;
+    private int shownWidth;
     /** The top of the list's first row, in pixels: the song block sits level with it. */
     private int firstRowTop;
     private boolean night;
@@ -227,6 +283,12 @@ final class InkHome {
                 loadSong();
             }
         };
+        watchedObserver = new ContentObserver(main) {
+            @Override
+            public void onChange(boolean selfChange) {
+                loadWatched();
+            }
+        };
     }
 
     View view() {
@@ -234,19 +296,20 @@ final class InkHome {
     }
 
     /**
-     * The rows: Calendar and Tasks when Today is installed, the dock apps that are, Screensaver, then Settings last.
-     * Built again each time Home comes back, so an app installed or removed meanwhile shows up.
+     * The rows: Calendar and Tasks when Today is installed, the apps that are (chosen on the TV in Settings, Home apps,
+     * or dock_apps), Screensaver, then Settings last. Built again each time Home comes back, so an app installed or
+     * removed meanwhile shows up.
      */
     private void buildItems() {
         Item was = items.isEmpty() ? null : items.get(selected);
         items.clear();
         PackageManager pm = activity.getPackageManager();
-        boolean today = installed(pm, TODAY);
+        today = installed(pm, TODAY);
         if (today) {
             items.add(new Item(CALENDAR, "Calendar", null));
             items.add(new Item(TASKS, "Tasks", null));
         }
-        for (String pkg : dockApps) {
+        for (String pkg : InkApps.load(activity, dockApps)) {
             if (items.size() >= 8) break;   // one list of at most eight rows
             try {
                 ApplicationInfo info = pm.getApplicationInfo(pkg, 0);
@@ -280,6 +343,8 @@ final class InkHome {
 
     void onResume() {
         buildItems();
+        // back from an app or the Play Store: the lists are read again, so an app installed meanwhile is in them
+        if (page == P_APPS || page == P_ALL) openOn(page, row < rows.size() ? rows.get(row).pkg : null, row);
         render();
         loadAgenda();
         // Today fetches a fresh agenda when it was not fetched in the last minutes (its RefreshReceiver).
@@ -287,10 +352,12 @@ final class InkHome {
         try {
             activity.getContentResolver().registerContentObserver(AGENDA, false, observer);
             activity.getContentResolver().registerContentObserver(NOW, false, songObserver);
+            activity.getContentResolver().registerContentObserver(WATCHED, false, watchedObserver);
         } catch (SecurityException ignored) {
             // Today missing, or signed with another key: no previews
         }
         loadSong();
+        loadWatched();
         onMinute();
         resumed = true;
         main.removeCallbacks(pass);
@@ -305,11 +372,16 @@ final class InkHome {
         main.removeCallbacks(tick);
         activity.getContentResolver().unregisterContentObserver(observer);
         activity.getContentResolver().unregisterContentObserver(songObserver);
+        activity.getContentResolver().unregisterContentObserver(watchedObserver);
         okOnSong = false;
     }
 
     void onNewIntent() {
-        if (selected != 0) {
+        if (page != P_HOME) {
+            page = P_HOME;   // Home closes the settings pages
+            selected = 0;
+            render();
+        } else if (selected != 0) {
             selected = 0;   // Home on Home: back to the top of the list
             render();
         }
@@ -444,6 +516,31 @@ final class InkHome {
         });
     }
 
+    /** The last show watched in each streaming app, from Today's NowPlaying, off the main thread. */
+    private void loadWatched() {
+        io.execute(() -> {
+            List<Watched> w = new ArrayList<>();
+            try (Cursor c = activity.getContentResolver().query(WATCHED, null, null, null, null)) {
+                w = Watched.all(c);
+            } catch (Exception ignored) {
+                // no Today, an older one, or no permission: nothing watched
+            }
+            List<Watched> got = w;
+            main.post(() -> {
+                watched = got;
+                showPreview();
+            });
+        });
+    }
+
+    /** The last show watched in the app of this row, if it is still shown; null when none. */
+    private Watched watchedOn(Item it) {
+        if (it.kind != APP) return null;
+        long now = System.currentTimeMillis();
+        for (Watched w : watched) if (w.pkg.equals(it.pkg) && w.shownAt(now)) return w;
+        return null;
+    }
+
     /** A song to show now: playing, or paused less than ten minutes ago. */
     private boolean songShown() {
         return song != null && song.shownAt(System.currentTimeMillis());
@@ -455,9 +552,10 @@ final class InkHome {
     }
 
     // ---- Keys: up and down move the bar in the list, OK opens (held on the Spotify row: pause or play), Menu =
-    // launcher settings. Left and right do nothing.
+    // launcher settings. Left and right do nothing. On the settings pages Back goes up one level.
 
     boolean dispatchKeyEvent(KeyEvent event) {
+        if (page != P_HOME) return pageKey(event);
         int code = event.getKeyCode();
         boolean ours = code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN
                 || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT
@@ -520,7 +618,7 @@ final class InkHome {
                 start(new Intent().setComponent(new ComponentName(TODAY, TODAY + ".SaverActivity")));
                 break;
             default:
-                start(new Intent(Settings.ACTION_SETTINGS));
+                openPage(P_SETTINGS, 0);
         }
     }
 
@@ -545,6 +643,287 @@ final class InkHome {
         }
     }
 
+    // ---- The settings pages, over Home: Settings (Home apps, TV settings); Home apps, the app rows, where the owner
+    // moves and removes them; and All apps, every app on the TV, to open or add to Home, with the Play Store for more.
+    // OK on an app opens its page. One list per page, like Home; Back goes up one level and Home closes them.
+
+    private void openPage(int p, int at) {
+        page = p;
+        moving = -1;
+        hint = null;
+        rows.clear();
+        PackageManager pm = activity.getPackageManager();
+        switch (p) {
+            case P_SETTINGS:
+                title = "SETTINGS";
+                rows.add(new Item(HOME_APPS, "Home apps", null));
+                rows.add(new Item(TV_SETTINGS, "TV settings", null));
+                break;
+            case P_APPS:
+                title = "HOME APPS";
+                for (String pkg : shownApps()) rows.add(new Item(EDIT, appName(pm, pkg), pkg));
+                rows.add(new Item(ALL, "All apps", null));
+                hint = "OK on an app to open, move or remove it";
+                break;
+            case P_APP:
+                title = editing.label.toUpperCase(Locale.ROOT);
+                rows.add(new Item(OPEN, "Open", null));
+                if (shownApps().contains(editing.pkg)) {
+                    rows.add(new Item(MOVE, "Move", null));
+                    rows.add(new Item(REMOVE, "Remove from Home", null));
+                } else if (shownApps().size() < InkApps.room(today)) {
+                    rows.add(new Item(ADD, "Add to Home", null));
+                } else {
+                    rows.add(new Item(NOTE, "Home is full: remove an app first", null));
+                }
+                break;
+            default:
+                title = "ALL APPS";
+                rows.addAll(allApps(pm));
+                if (launchIntent(pm, STORE_PACKAGE) != null) rows.add(new Item(STORE, "Get more apps", null));
+                hint = "OK on an app to open it or add it to Home";
+        }
+        row = Math.max(0, Math.min(at, rows.size() - 1));
+        if (rows.get(row).kind == NOTE) row = Math.max(0, row - 1);
+        // nothing of Home's shows under a page
+        preview.removeAllViews();
+        main.removeCallbacks(tick);
+        progress = null;
+        shownPreview = NONE;
+        songBlock.show((Playing) null, ink, muted, paper, night);
+        render();
+    }
+
+    /** Opens a list with the bar on an app's row, or on row {@code at} when it is not there (Get more apps). */
+    private void openOn(int p, String pkg) {
+        openOn(p, pkg, 0);
+    }
+
+    private void openOn(int p, String pkg, int at) {
+        openPage(p, at);
+        for (int i = 0; pkg != null && i < rows.size(); i++) {
+            if (rows.get(i).kind == EDIT && pkg.equals(rows.get(i).pkg)) {
+                row = i;
+                render();
+                return;
+            }
+        }
+    }
+
+    private void closePages() {
+        page = P_HOME;
+        moving = -1;
+        for (int i = 0; i < items.size(); i++) if (items.get(i).kind == SETTINGS) selected = i;   // back on Settings
+        render();
+    }
+
+    private boolean pageKey(KeyEvent event) {
+        int code = event.getKeyCode();
+        boolean ok = code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER || code == KeyEvent.KEYCODE_NUMPAD_ENTER;
+        boolean upDown = code == KeyEvent.KEYCODE_DPAD_UP || code == KeyEvent.KEYCODE_DPAD_DOWN;
+        boolean ours = ok || upDown || code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_MENU
+                || code == KeyEvent.KEYCODE_DPAD_LEFT || code == KeyEvent.KEYCODE_DPAD_RIGHT;
+        if (!ours) return false;
+        if (event.getAction() != KeyEvent.ACTION_DOWN || (event.getRepeatCount() > 0 && !upDown)) return true;
+        if (upDown) {
+            int by = code == KeyEvent.KEYCODE_DPAD_UP ? -1 : 1;
+            if (moving >= 0) shift(by);
+            else step(by);
+        } else if (code == KeyEvent.KEYCODE_BACK) {
+            back();
+        } else if (ok) {
+            choose(rows.get(row));
+        }
+        return true;
+    }
+
+    /** The bar to the next row that can be chosen, a line that is only read skipped. */
+    private void step(int by) {
+        for (int i = row + by; i >= 0 && i < rows.size(); i += by) {
+            if (rows.get(i).kind == NOTE) continue;
+            row = i;
+            render();
+            return;
+        }
+    }
+
+    private void back() {
+        if (moving >= 0) {
+            putDown();
+            return;
+        }
+        switch (page) {
+            case P_APP:
+                openOn(editFrom, editing.pkg);
+                break;
+            case P_ALL:
+                openPage(P_APPS, shownApps().size());   // on All apps
+                break;
+            case P_APPS:
+                openPage(P_SETTINGS, 0);
+                break;
+            default:
+                closePages();
+        }
+    }
+
+    private void choose(Item it) {
+        switch (it.kind) {
+            case HOME_APPS:
+                openPage(P_APPS, 0);
+                break;
+            case TV_SETTINGS:
+                start(new Intent(Settings.ACTION_SETTINGS));
+                break;
+            case EDIT:
+                if (moving >= 0) {
+                    putDown();
+                    break;
+                }
+                editing = it;
+                editFrom = page;
+                openPage(P_APP, 0);
+                break;
+            case OPEN:
+                Intent launch = launchIntent(activity.getPackageManager(), editing.pkg);
+                openOn(editFrom, editing.pkg);   // back from the app on its row
+                if (launch != null) start(launch);
+                break;
+            case MOVE:
+                int at = indexOf(editing.pkg);
+                openPage(P_APPS, at);
+                moving = at;
+                hint = "Up and down move it, OK puts it down";
+                render();
+                break;
+            case REMOVE:
+                List<String> left = shownApps();
+                int was = left.indexOf(editing.pkg);
+                left.remove(editing.pkg);
+                saveApps(left);
+                if (editFrom == P_ALL) openOn(P_ALL, editing.pkg);
+                else openPage(P_APPS, Math.max(0, was));
+                break;
+            case ALL:
+                openPage(P_ALL, 0);
+                break;
+            case ADD:
+                List<String> more = shownApps();
+                more.add(editing.pkg);   // at the bottom of Home's apps
+                saveApps(more);
+                openOn(editFrom, editing.pkg);
+                break;
+            case STORE:
+                start(launchIntent(activity.getPackageManager(), STORE_PACKAGE));
+                break;
+            default:
+                break;
+        }
+    }
+
+    /** Home apps: the app being moved goes one row up or down, and Home's list with it. */
+    private void shift(int by) {
+        List<String> apps = shownApps();
+        int to = moving + by;
+        if (to < 0 || to >= apps.size()) return;
+        saveApps(InkApps.move(apps, moving, by));
+        Item it = rows.get(moving);
+        rows.set(moving, rows.get(to));
+        rows.set(to, it);
+        moving = to;
+        row = to;
+        render();
+    }
+
+    private void putDown() {
+        int at = moving;
+        openPage(P_APPS, at);
+    }
+
+    private void saveApps(List<String> apps) {
+        InkApps.save(activity, apps, dockApps);
+        buildItems();
+    }
+
+    /** The packages of the app rows on Home now, in order: the chosen apps that are installed and fit. */
+    private List<String> shownApps() {
+        List<String> out = new ArrayList<>();
+        for (Item it : items) if (it.kind == APP) out.add(it.pkg);
+        return out;
+    }
+
+    private int indexOf(String pkg) {
+        return Math.max(0, shownApps().indexOf(pkg));
+    }
+
+    /** Every app the TV can open, by name; not this launcher or Today, which Home already covers. */
+    private List<Item> allApps(PackageManager pm) {
+        List<Item> out = new ArrayList<>();
+        List<String> seen = new ArrayList<>();
+        for (String category : new String[] {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
+            for (ResolveInfo r : pm.queryIntentActivities(new Intent(Intent.ACTION_MAIN).addCategory(category), 0)) {
+                String pkg = r.activityInfo.packageName;
+                if (seen.contains(pkg) || pkg.equals(activity.getPackageName()) || pkg.equals(TODAY)) continue;
+                seen.add(pkg);
+                out.add(new Item(EDIT, appName(pm, pkg), pkg));
+            }
+        }
+        Collator byName = Collator.getInstance();
+        out.sort((a, b) -> byName.compare(a.label, b.label));
+        return out;
+    }
+
+    private static String appName(PackageManager pm, String pkg) {
+        try {
+            return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return pkg;
+        }
+    }
+
+    /**
+     * A page: its title, its rows (All apps a page of PAGE_ROWS at a time, the apps on Home marked) and the hint, where
+     * Home's list is.
+     */
+    private void renderPage() {
+        int from = page == P_ALL ? row / PAGE_ROWS * PAGE_ROWS : 0;
+        int to = page == P_ALL ? Math.min(rows.size(), from + PAGE_ROWS) : rows.size();
+        int pages = (rows.size() + PAGE_ROWS - 1) / PAGE_ROWS;
+        List<String> onHome = shownApps();
+        TextView head = label(page == P_ALL && pages > 1 ? title + "  " + (from / PAGE_ROWS + 1) + "/" + pages : title);
+        head.setTextColor(muted);
+        head.setPadding(px(24), 0, px(24), 0);
+        list.addView(head, wrap(0));
+        for (int i = from; i < to; i++) {
+            Item it = rows.get(i);
+            // Home apps: a gap between the apps and the row under them, as on Home
+            boolean gap = i > from && it.kind != EDIT && rows.get(i - 1).kind == EDIT;
+            if (gap) list.addView(new View(activity), new LinearLayout.LayoutParams(1, px(28)));
+            TextView t = text(it.kind == NOTE ? 30 : 42, false);
+            boolean on = i == row && it.kind != NOTE;
+            if (i == moving) {
+                t.setText(it.label + "   ↑↓");
+            } else if (page == P_ALL && onHome.contains(it.pkg)) {
+                SpannableString s = new SpannableString(it.label + "   on Home");
+                s.setSpan(new ForegroundColorSpan(on ? Color.argb(170, Color.red(paper), Color.green(paper), Color.blue(paper)) : muted),
+                        it.label.length(), s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                s.setSpan(new AbsoluteSizeSpan(px(30)), it.label.length(), s.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                t.setText(s);
+            } else {
+                t.setText(it.label);
+            }
+            t.setPadding(px(24), px(12), px(24), px(12));
+            t.setTextColor(on ? paper : it.kind == NOTE ? muted : ink);
+            if (on) t.setBackgroundColor(ink);
+            list.addView(t, wrap(i == from ? 28 : 4));
+        }
+        if (hint != null) {
+            TextView h = text(26, false, hint, muted);
+            h.setPadding(px(24), 0, px(24), 0);
+            list.addView(h, wrap(36));
+        }
+    }
+
     // ---- Drawing
 
     private void render() {
@@ -564,6 +943,10 @@ final class InkHome {
             shownPreview = NONE;
         }
         list.removeAllViews();
+        if (page != P_HOME) {
+            renderPage();
+            return;
+        }
         for (int i = 0; i < items.size(); i++) {
             Item it = items.get(i);
             // a gap between Calendar and Tasks and the apps below them, and before Settings at the bottom
@@ -582,27 +965,50 @@ final class InkHome {
     }
 
     /**
-     * The preview above the clock follows the selection, swapping at once: Calendar's, Tasks', or with the Spotify row
-     * the song's in place of the block at the top right. While the block shows, the previews start under it.
+     * The preview follows the selection, swapping at once: Calendar's, Tasks', or with the Spotify row the song's in
+     * place of the block at the top right, or with a streaming app's row its last show watched. Calendar and Tasks
+     * always open in the middle column, level with the first row (and so with the block), so they stay put whether a
+     * song plays or not and never stack under it.
      */
     private void showPreview() {
+        if (page != P_HOME) return;   // a settings page is open: no previews and no song
         Item it = items.get(selected);
         boolean playing = songShown();
+        Watched last = songRow(it) ? null : watchedOn(it);
         int want = it.kind == CALENDAR || it.kind == TASKS ? it.kind : songRow(it) ? SONG : NONE;
-        boolean block = playing && want != SONG;
-        songBlock.show(block ? song : null, ink, muted, paper, night);
+        boolean middle = want == CALENDAR || want == TASKS;
+        // the row's last show takes the block's place while it is selected, as the song's preview does on its row
+        if (last != null) songBlock.show(last, ink, muted, paper, night);
+        else songBlock.show(playing && want != SONG ? song : null, ink, muted, paper, night);
         FrameLayout.LayoutParams sp = (FrameLayout.LayoutParams) songBlock.getLayoutParams();
         if (sp.topMargin != firstRowTop) {
             sp.topMargin = firstRowTop;
             songBlock.setLayoutParams(sp);
         }
-        int top = block ? firstRowTop + px(UNDER_SONG) : px(PREVIEW_TOP);
-        if (want == shownPreview && top == shownTop) return;
+        int top = middle ? firstRowTop : px(PREVIEW_TOP);
+        int width = px(688);
+        if (middle) {
+            // the middle column, but ending 48 px before the block when a long title widens it to the left
+            int blockLeft = activity.getResources().getDisplayMetrics().widthPixels - px(240);
+            if (songBlock.getVisibility() == View.VISIBLE) {
+                songBlock.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+                blockLeft -= songBlock.getMeasuredWidth();
+            }
+            width = Math.min(px(MIDDLE_WIDTH + 48), blockLeft - px(24) - px(MIDDLE_LEFT - 24));
+        }
+        if (want == shownPreview && top == shownTop && middle == shownMiddle && width == shownWidth) return;
         shownPreview = want;
         shownTop = top;
+        shownMiddle = middle;
+        shownWidth = width;
         FrameLayout.LayoutParams pp = (FrameLayout.LayoutParams) preview.getLayoutParams();
+        pp.gravity = Gravity.TOP | (middle ? Gravity.START : Gravity.END);
+        // the column's own padding is 24 a side, so its text starts at MIDDLE_LEFT
+        pp.leftMargin = middle ? px(MIDDLE_LEFT - 24) : 0;
+        pp.rightMargin = middle ? 0 : px(216);
+        pp.width = width;
         pp.topMargin = top;
-        pp.height = block ? px(440) : px(500);   // under the block it stops short of the clock too
+        pp.height = px(middle ? 600 : 500);   // in the middle it ends above the clock
         preview.setLayoutParams(pp);
         fillPreview();
     }
@@ -618,14 +1024,26 @@ final class InkHome {
         else if (shownPreview == SONG) preview.addView(songPreview(items.get(selected).label));
     }
 
-    /** The song, larger: the cover in ink dots beside its title, artist and album, the progress line, the keys. */
+    /**
+     * The song, larger: the block's moving bars before NOW PLAYING, the cover in shades of ink beside its title, artist
+     * and album, the progress line, the keys.
+     */
     private View songPreview(String app) {
         LinearLayout col = column();
-        col.addView(label(song.playing ? "NOW PLAYING" : "PAUSED"));
+        LinearLayout head = row();
+        PlayingBars bars = new PlayingBars(activity);
+        bars.set(song.playing, ink);
+        // the block's bars at the size of this label (24 px against its 15), 1.6 times as large
+        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
+                px(1.6f * (3 * PlayingBars.BAR_PX + 2 * PlayingBars.GAP_PX)), px(26));
+        bp.rightMargin = px(16);
+        head.addView(bars, bp);
+        head.addView(label(song.playing ? "NOW PLAYING" : "PAUSED"));
+        col.addView(head);
         LinearLayout row = row();
         row.setGravity(Gravity.BOTTOM);
         CoverView cover = new CoverView(activity);
-        cover.set(song.cover, 40, ink, paper, night);
+        cover.set(song.cover, ink, paper, night);
         row.addView(cover, new LinearLayout.LayoutParams(px(260), px(260)));
         LinearLayout words = new LinearLayout(activity);
         words.setOrientation(LinearLayout.VERTICAL);

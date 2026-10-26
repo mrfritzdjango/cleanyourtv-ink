@@ -12,6 +12,14 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- LAST WATCHED on Home names the streaming app it came from (NowPlaying): the TV's launchable apps' names. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+        </intent>
+    </queries>
+
     <!-- Reading the last agenda and asking for a refresh: only apps signed with the same key (your launcher build). -->
     <permission
         android:name="io.github.mrfritzdjango.morningboard.permission.AGENDA"
@@ -94,7 +102,8 @@
             </intent-filter>
         </receiver>
 
-        <!-- What Spotify is playing, for Home and the screensaver. A notification listener only because Android lets
+        <!-- What Spotify is playing, for Home and the screensaver, and the last show watched in a streaming app, for
+             Home. A notification listener only because Android lets
              no other kind of app follow media sessions; it reads no notifications. Off until allowed once over ADB:
              cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying -->
         <service

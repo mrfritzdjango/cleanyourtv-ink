@@ -1,20 +1,26 @@
 package io.github.mrfritzdjango.ink;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.view.View;
 
 /**
- * An album cover redrawn as ink dots, one per cell, on a square a shade off the page (so it reads as a square without a
- * border). In night ink, where the ink is light, a lighter part of the cover gets a bigger dot; on paper a darker one.
+ * An album cover (or a video's 16:9 frame) as a greyscale picture in sixteen shades of ink, like a cover on a Kindle, on
+ * a tile a shade off the page (so it reads as a square without a border). The picture stays the right way round: in night
+ * ink, where the ink is light, a lighter part of it gets more ink; on paper a darker one.
  */
 public final class CoverView extends View {
-    private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private int cells = 22;
+    /** The shades between the tile and full ink. */
+    private static final int SHADES = 16;
+
+    private final Paint smooth = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Rect frame = new Rect();
     private int tile;
-    /** Each cell's dot as a share of half a cell, or null for an empty square. */
-    private float[] dots;
+    /** The picture at the size it came in, one pixel per grey level, or null for an empty square. */
+    private Bitmap picture;
 
     public CoverView(Context context) {
         super(context);
@@ -22,32 +28,36 @@ public final class CoverView extends View {
 
     /** The page's square: paper with a twentieth of ink in it. */
     public static int tile(int paper, int ink) {
-        int r = mix(paper >> 16 & 0xFF, ink >> 16 & 0xFF), g = mix(paper >> 8 & 0xFF, ink >> 8 & 0xFF), b = mix(paper & 0xFF, ink & 0xFF);
-        return 0xFF000000 | r << 16 | g << 8 | b;
+        return mix(paper, ink, 1 / 20f);
     }
 
-    private static int mix(int a, int b) {
-        return a + (b - a) / 20;
+    /** a moved a share t of the way to b, channel by channel. */
+    private static int mix(int a, int b, float t) {
+        int r = Math.round((a >> 16 & 0xFF) + ((b >> 16 & 0xFF) - (a >> 16 & 0xFF)) * t);
+        int g = Math.round((a >> 8 & 0xFF) + ((b >> 8 & 0xFF) - (a >> 8 & 0xFF)) * t);
+        int bl = Math.round((a & 0xFF) + ((b & 0xFF) - (a & 0xFF)) * t);
+        return 0xFF000000 | r << 16 | g << 8 | bl;
     }
 
-    /** grey: Playing.COVER × Playing.COVER levels, or null; cells: dots across. */
-    public void set(byte[] grey, int cells, int ink, int paper, boolean night) {
-        this.cells = cells;
+    /** grey: Playing.COVER × Playing.COVER levels, or null. */
+    public void set(byte[] grey, int ink, int paper, boolean night) {
+        set(grey, Playing.COVER, Playing.COVER, ink, paper, night);
+    }
+
+    /** grey: w × h levels, or null, in the same shape as the view. */
+    public void set(byte[] grey, int w, int h, int ink, int paper, boolean night) {
         tile = tile(paper, ink);
-        dot.setColor(ink);
-        dots = null;
-        if (grey != null && grey.length == Playing.COVER * Playing.COVER) {
-            dots = new float[cells * cells];
-            for (int j = 0; j < cells; j++) {
-                for (int i = 0; i < cells; i++) {
-                    int x0 = i * Playing.COVER / cells, x1 = Math.max(x0 + 1, (i + 1) * Playing.COVER / cells);
-                    int y0 = j * Playing.COVER / cells, y1 = Math.max(y0 + 1, (j + 1) * Playing.COVER / cells);
-                    int sum = 0;
-                    for (int y = y0; y < y1; y++) for (int x = x0; x < x1; x++) sum += grey[y * Playing.COVER + x] & 0xFF;
-                    float v = sum / (255f * (x1 - x0) * (y1 - y0));
-                    dots[j * cells + i] = 1.08f * (float) Math.sqrt(night ? v : 1 - v);
-                }
+        picture = null;
+        if (grey != null && grey.length == w * h) {
+            int[] shade = new int[SHADES];
+            for (int s = 0; s < SHADES; s++) shade[s] = mix(tile, ink, s / (SHADES - 1f));
+            int[] pixels = new int[w * h];
+            for (int i = 0; i < pixels.length; i++) {
+                int v = grey[i] & 0xFF;
+                int s = Math.round((night ? v : 255 - v) * (SHADES - 1) / 255f);
+                pixels[i] = shade[s];
             }
+            picture = Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888);
         }
         invalidate();
     }
@@ -55,13 +65,8 @@ public final class CoverView extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         canvas.drawColor(tile);
-        if (dots == null) return;
-        float cell = getWidth() / (float) cells;
-        for (int j = 0; j < cells; j++) {
-            for (int i = 0; i < cells; i++) {
-                float r = dots[j * cells + i] * cell / 2;
-                if (r >= 0.5f) canvas.drawCircle((i + 0.5f) * cell, (j + 0.5f) * cell, r, dot);
-            }
-        }
+        if (picture == null) return;
+        frame.set(0, 0, getWidth(), getHeight());
+        canvas.drawBitmap(picture, null, frame, smooth);
     }
 }

@@ -20,4 +20,13 @@
         <item>com.spotify.tv.android</item>
         <item>com.spotify.music</item>
     </string-array>
+    <!-- The streaming apps whose last show or video Home keeps as LAST WATCHED (at the top right of Home while that app's
+         row is selected): YouTube, Netflix, Prime Video, Apple TV and Disney+ Hotstar. Add a package to follow another app. -->
+    <string-array name="watch_apps" translatable="false">
+        <item>com.google.android.youtube.tv</item>
+        <item>com.netflix.ninja</item>
+        <item>com.amazon.amazonvideo.livingroom</item>
+        <item>com.apple.atve.androidtv.appletv</item>
+        <item>in.startv.hotstar.dplus.tv</item>
+    </string-array>
 </resources>

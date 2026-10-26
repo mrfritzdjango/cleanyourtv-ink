@@ -1,8 +1,12 @@
 package io.github.mrfritzdjango.morningboard;
 
 import io.github.mrfritzdjango.ink.Playing;
+import io.github.mrfritzdjango.ink.Watched;
 
 import android.content.ComponentName;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -13,19 +17,25 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.service.notification.NotificationListenerService;
+import android.util.Base64;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 /**
  * What Spotify (or another app in now_playing_apps) is playing on the TV, for the e-ink Home's block and the
- * screensaver's. Android lets only a notification listener follow other apps' media sessions, so this is one; it never
+ * screensaver's, and the last show watched in each app in watch_apps (YouTube, Netflix…), kept for Home's LAST WATCHED.
+ * Android lets only a notification listener follow other apps' media sessions, so this is one; it never
  * reads a notification. Turned on once over ADB (the README): cmd notification allow_listener
  * io.github.mrfritzdjango.morningboard/.NowPlaying. Android calls it when a song or its state changes; nothing polls.
  */
 public final class NowPlaying extends NotificationListenerService {
     static final Uri URI = Uri.parse("content://" + AgendaProvider.AUTHORITY + "/now");
+    static final Uri WATCHED_URI = Uri.parse("content://" + AgendaProvider.AUTHORITY + "/watched");
+    /** A show counts as watched this far in, so a trailer an app plays by itself on its front page does not. */
+    private static final long WATCHED_AFTER_MS = 60_000;
 
     /** The last song, null when nothing is playing; read by the provider (a binder thread) and the screensaver. */
     private static volatile Playing current;
@@ -49,8 +59,31 @@ public final class NowPlaying extends NotificationListenerService {
             follow(active());
         }
     };
+    private final MediaController.Callback watchCallback = new MediaController.Callback() {
+        @Override
+        public void onPlaybackStateChanged(PlaybackState state) {
+            remember();
+        }
+
+        @Override
+        public void onMetadataChanged(MediaMetadata metadata) {
+            remember();
+        }
+
+        @Override
+        public void onSessionDestroyed() {
+            remember();
+            follow(active());
+        }
+    };
     private MediaSessionManager sessions;
     private MediaController controller;
+    /** The streaming app's session followed for LAST WATCHED, with its last metadata and state (kept for when it goes). */
+    private MediaController watching;
+    private MediaMetadata watchMeta;
+    private PlaybackState watchState;
+    private Bitmap frameOf;
+    private byte[] frame;
     private Bitmap coverOf;
     private byte[] cover;
     private long pausedAt;
@@ -113,6 +146,24 @@ public final class NowPlaying extends NotificationListenerService {
             if (pick != null) pick.registerCallback(callback, main);
         }
         publish();
+        List<String> shows = Arrays.asList(getResources().getStringArray(R.array.watch_apps));
+        MediaController show = null;
+        for (MediaController c : list) {
+            if (!shows.contains(c.getPackageName())) continue;
+            if (show == null || playing(c) && !playing(show)) show = c;
+        }
+        if (show != null && watching != null && show.getSessionToken().equals(watching.getSessionToken())) return;
+        if (watching != null) {
+            remember();   // where the old one got to, before letting it go
+            watching.unregisterCallback(watchCallback);
+        }
+        watching = show;
+        watchMeta = null;
+        watchState = null;
+        if (show != null) {
+            show.registerCallback(watchCallback, main);
+            remember();
+        }
     }
 
     private static boolean playing(MediaController c) {
@@ -138,7 +189,7 @@ public final class NowPlaying extends NotificationListenerService {
             Bitmap art = art(m);
             if (art != coverOf) {   // a new picture: often a moment after the song's title
                 coverOf = art;
-                cover = grey(art);
+                cover = grey(art, Playing.COVER, Playing.COVER);
             }
             p = new Playing(title,
                     first(m, MediaMetadata.METADATA_KEY_ARTIST, MediaMetadata.METADATA_KEY_ALBUM_ARTIST, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE),
@@ -152,6 +203,65 @@ public final class NowPlaying extends NotificationListenerService {
         }
         current = p;
         getContentResolver().notifyChange(URI, null);
+    }
+
+    /** The last show or video watched in each app in watch_apps, kept in Today's prefs under "watched.<package>.". */
+    static List<Watched> watched(Context context) {
+        SharedPreferences p = Store.prefs(context);
+        List<Watched> out = new ArrayList<>();
+        for (String pkg : context.getResources().getStringArray(R.array.watch_apps)) {
+            String k = "watched." + pkg + ".";
+            String title = p.getString(k + "title", null);
+            if (title == null) continue;
+            String f = p.getString(k + "frame", null);
+            out.add(new Watched(title, p.getString(k + "episode", ""), p.getString(k + "app", ""), pkg,
+                    p.getLong(k + "at", 0), f == null ? null : Base64.decode(f, Base64.NO_WRAP)));
+        }
+        return out;
+    }
+
+    /** Keeps the followed streaming app's show as that app's last watched, once it is WATCHED_AFTER_MS in, and tells Home. */
+    private void remember() {
+        MediaController c = watching;
+        if (c == null) return;
+        MediaMetadata m = c.getMetadata();
+        if (m != null) watchMeta = m;
+        else m = watchMeta;
+        PlaybackState s = c.getPlaybackState();
+        if (s != null) watchState = s;
+        else s = watchState;
+        String title = m == null ? null : first(m, MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE);
+        if (title == null || s == null) return;
+        int state = s.getState();
+        if (state != PlaybackState.STATE_PLAYING && state != PlaybackState.STATE_PAUSED && state != PlaybackState.STATE_BUFFERING) return;
+        long at = s.getPosition();
+        if (state == PlaybackState.STATE_PLAYING) at += (long) ((SystemClock.elapsedRealtime() - s.getLastPositionUpdateTime()) * s.getPlaybackSpeed());
+        if (at < WATCHED_AFTER_MS) return;
+        Bitmap art = art(m);
+        if (art != frameOf) {
+            frameOf = art;
+            frame = grey(art, Watched.FRAME_W, Watched.FRAME_H);
+        }
+        String pkg = c.getPackageName();
+        String k = "watched." + pkg + ".";
+        Store.prefs(this).edit()
+                .putString(k + "title", title)
+                .putString(k + "episode", first(m, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ARTIST,
+                        MediaMetadata.METADATA_KEY_ALBUM))
+                .putString(k + "app", label(pkg))
+                .putLong(k + "at", System.currentTimeMillis())
+                .putString(k + "frame", frame == null ? null : Base64.encodeToString(frame, Base64.NO_WRAP))
+                .apply();
+        getContentResolver().notifyChange(WATCHED_URI, null);
+    }
+
+    private String label(String pkg) {
+        PackageManager pm = getPackageManager();
+        try {
+            return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return "";
+        }
     }
 
     private static String first(MediaMetadata m, String... keys) {
@@ -169,14 +279,16 @@ public final class NowPlaying extends NotificationListenerService {
         return b;
     }
 
-    /** The cover as Playing.COVER × Playing.COVER grey levels; null without a picture. */
-    private static byte[] grey(Bitmap b) {
+    /** The picture as w × h grey levels, its middle cut to that shape; null without a picture. */
+    private static byte[] grey(Bitmap b, int w, int h) {
         if (b == null) return null;
         try {
             Bitmap soft = b.getConfig() == Bitmap.Config.HARDWARE ? b.copy(Bitmap.Config.ARGB_8888, false) : b;
-            Bitmap small = Bitmap.createScaledBitmap(soft, Playing.COVER, Playing.COVER, true);
-            int[] px = new int[Playing.COVER * Playing.COVER];
-            small.getPixels(px, 0, Playing.COVER, 0, 0, Playing.COVER, Playing.COVER);
+            int cw = Math.min(soft.getWidth(), soft.getHeight() * w / h), ch = Math.min(soft.getHeight(), soft.getWidth() * h / w);
+            Bitmap cut = Bitmap.createBitmap(soft, (soft.getWidth() - cw) / 2, (soft.getHeight() - ch) / 2, Math.max(1, cw), Math.max(1, ch));
+            Bitmap small = Bitmap.createScaledBitmap(cut, w, h, true);
+            int[] px = new int[w * h];
+            small.getPixels(px, 0, w, 0, 0, w, h);
             byte[] out = new byte[px.length];
             for (int i = 0; i < px.length; i++) out[i] = (byte) Playing.grey(px[i]);
             return out;

@@ -12,8 +12,10 @@ the code and nothing to keep in sync.
 | `Shows` | Indexes and unpacks `assets/moves.bin`: each animal's pass and outing as keyframes. |
 | `ShowView` | Draws an animal into bitmaps and plays a show, bending the drawing through a grid and blending keyframes on every display frame. |
 | `Playing` | The song Today's `NowPlaying` follows: one row of its provider, where the song is now, and when a paused one goes. |
-| `CoverView` | An album cover as ink dots, one per cell, on a square a shade off the page. |
-| `SongBlock` | The now-playing block at the top right of Home and the screensaver: the cover, NOW PLAYING, the song, the artist. |
+| `Watched` | The last show watched in a streaming app, as Today's `NowPlaying` keeps it: title, episode, app, a 16:9 frame. |
+| `CoverView` | An album cover (or a video's frame) in sixteen shades of ink, on a tile a shade off the page. |
+| `SongBlock` | The block at the top right of Home and the screensaver: the cover, NOW PLAYING after three moving bars, the song, the artist; on Home, with a streaming app's row selected, LAST WATCHED. |
+| `PlayingBars` | Those three bars: four heights each, in steps, redrawn a few times a second only while on screen; flat when paused. |
 
 The assets live only in Today; the launcher reads them through `createPackageContext`. Their tests are Today's
 (`addons/morning-board/app/src/test`), which check every drawing and every show in the real assets. The drawings

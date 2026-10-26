@@ -72,7 +72,7 @@ The animals' drawings and moves are made with the tools in [`art/`](art/) and [`
 ## 4. Now playing
 
 While Spotify plays on the TV (opened on the TV, or picked from your phone with Spotify Connect), the e-ink Home
-and the screensaver show the song at the top right: the cover in ink dots, NOW PLAYING, the song and the artist.
+and the screensaver show the song at the top right: the cover in shades of ink, NOW PLAYING, the song and the artist.
 Paused, it reads PAUSED, and goes after ten minutes. With the Spotify row selected on Home, a larger view with the
 album and a progress line takes its place; OK opens Spotify, OK held pauses or plays.
 
@@ -91,6 +91,11 @@ headphones is not on the TV, so it does not show.
 While Spotify's own app is in front it keeps the screen on, so the screensaver does not start over it; the block
 shows once you go back to Home, or when the screensaver starts after you leave Spotify playing from Home.
 
+`NowPlaying` also keeps the last show or video watched in each streaming app (`watch_apps`) once you are a minute
+into it, for Home's LAST WATCHED, shown while that app's row is selected. Each app decides what its media session says: some give the
+episode and a picture, some only the title. Android's own Continue watching row is closed to other apps, so this is
+built from what the apps report while they play.
+
 ## Options
 
 Set in `app/src/main/res/values/options.xml` before building.
@@ -104,6 +109,7 @@ Set in `app/src/main/res/values/options.xml` before building.
 | `saver_change_minutes` | `1` | A new animal every this many minutes. |
 | `saver_still_seconds` | `20` | How long the animal holds still at home between outings. |
 | `now_playing_apps` | Spotify (TV and phone app) | The apps whose songs show on Home and the screensaver. |
+| `watch_apps` | YouTube, Netflix, Prime Video, Apple TV, Disney+ Hotstar | The apps whose last show is Home's LAST WATCHED. |
 
 The morning alarm asks Android to turn the screen on. On a Chromecast with Google TV that could only turn the TV on
 over HDMI-CEC, and on the TV it was tried on it did not, which is why it is off by default. If you turn it on and the

@@ -1,6 +1,7 @@
 package io.github.mrfritzdjango.morningboard;
 
 import io.github.mrfritzdjango.ink.Playing;
+import io.github.mrfritzdjango.ink.Watched;
 
 import android.content.ContentProvider;
 import android.content.ContentValues;
@@ -11,7 +12,7 @@ import android.net.Uri;
 
 /**
  * The last agenda, read-only, for the launcher's e-ink Home (its Calendar and Tasks previews; Home has no network), and
- * at .../now the song playing (NowPlaying). Guarded by a signature permission, so only an app signed with the same key
+ * at .../now the song playing and at .../watched the last show watched in each streaming app (NowPlaying). Guarded by a signature permission, so only an app signed with the same key
  * can read it.
  */
 public final class AgendaProvider extends ContentProvider {
@@ -32,6 +33,12 @@ public final class AgendaProvider extends ContentProvider {
             if (p != null) now.addRow(p.row());
             now.setNotificationUri(getContext().getContentResolver(), NowPlaying.URI);
             return now;
+        }
+        if ("watched".equals(uri.getLastPathSegment())) {
+            MatrixCursor watched = new MatrixCursor(Watched.COLUMNS);
+            for (Watched w : NowPlaying.watched(getContext())) watched.addRow(w.row());
+            watched.setNotificationUri(getContext().getContentResolver(), NowPlaying.WATCHED_URI);
+            return watched;
         }
         MatrixCursor cursor = new MatrixCursor(new String[] {"body", "updated"});
         SharedPreferences prefs = Store.prefs(getContext());

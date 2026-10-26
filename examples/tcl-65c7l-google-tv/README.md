@@ -28,7 +28,7 @@ Every command below needs network debugging on the TV:
 [When you're done](#when-youre-done).
 
 The commands run from the repo folder. Each `tools/*.sh` script has a PowerShell twin in the same folder
-(`tools\disable.ps1`, `tools\restore.ps1`, `tools\theme.ps1`, `launcher\build-and-install.ps1`) that takes
+(`tools\disable.ps1`, `tools\restore.ps1`, `launcher\build-and-install.ps1`) that takes
 `-TvHost 192.168.1.50` instead of `TV_HOST=`.
 
 ## Apply the list and install the launcher
@@ -50,7 +50,7 @@ The commands run from the repo folder. Each `tools/*.sh` script has a PowerShell
    TV_HOST=192.168.1.50 launcher/build-and-install.sh
    ```
 
-4. Push this folder's [config.json](config.json) (dock order, columns, Live TV app):
+4. Push this folder's config.json (dock order, columns, Live TV app):
 
    ```sh
    TV_HOST=192.168.1.50 tools/theme.sh examples/tcl-65c7l-google-tv
@@ -81,7 +81,7 @@ launcher is Home. Either one can take Home back. Use the full undo below instead
 
 Quickest: on the TV, **hold OK on the Settings pill** and choose **reorder**.
 
-To keep the change through a reinstall, edit `dock_apps` in [config.json](config.json). The apps go into the dock
+To keep the change through a reinstall, edit `dock_apps` in config.json. The apps go into the dock
 left to right, and `columns` (4 to 7) sets how many fit:
 
 ```json
@@ -111,7 +111,7 @@ Package names of the apps on this unit:
 ## Change the wallpaper
 
 1. Put a picture named `wallpaper.jpg` in this folder. Use 1920×1080, because the TV draws its interface at 1080p.
-2. Add `"wallpaper": true,` to [config.json](config.json). Optionally add `"wallpaper_dim": 30` to darken it so tile names stay readable.
+2. Add `"wallpaper": true,` to config.json. Optionally add `"wallpaper_dim": 30` to darken it so tile names stay readable.
 3. Push it with the same `tools/theme.sh` command.
 
 For a rotating set, look at `themes/scenes`, or try a ready-made look with `TV_HOST=192.168.1.50 tools/theme.sh themes/aurora`.

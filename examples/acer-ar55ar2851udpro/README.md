@@ -37,7 +37,7 @@ and what was kept on purpose.
 `set-home-activity` does not stick here: Android drops the preference ("Result set changed, dropping preferred
 activity") and Home stays on `com.google.android.tvlauncher`. The stock launcher was therefore left enabled,
 and the launcher takes the Home button through `HomeKeyService` with `stock_home_redirect`
-([`config.json`](config.json)). After each cold boot the Home button opened the new launcher, and the boot-time
+(`config.json`). After each cold boot the Home button opened the new launcher, and the boot-time
 cover from #1121 ran.
 
 1. Build and install with the stock launcher kept:
@@ -48,7 +48,7 @@ cover from #1121 ran.
    `enabled_accessibility_services` lines in the script.
 2. Push the settings: `tools/theme.sh examples/acer-ar55ar2851udpro`.
 
-[`config.json`](config.json): dock Prime Video, JioHotstar, Amazon Music, Netflix, 6 columns, the Live TV app
+`config.json`: dock Prime Video, JioHotstar, Amazon Music, Netflix, 6 columns, the Live TV app
 `com.apps.livetv` for the Inputs menu, the full network name on the Wi-Fi pill (`icon_only_buttons` with
 `wifi_label_width` 320), and hold OK on a tile for Move and App info (`tile_menu`).
 

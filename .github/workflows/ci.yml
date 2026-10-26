@@ -65,9 +65,9 @@ jobs:
           chmod +x gradlew
           ./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease
       - name: The launcher stays small
-        # Upstream's gate is 512 KB. The Ink edition's e-ink Home and now-playing block add about 3 KB on top
-        # (its fonts, animals and shows live in the Today add-on, not here), so this fork allows 560 KB.
+        # The e-ink Home is about 45 KB (its fonts, animals and shows live in the Today add-on). 128 KB leaves room to
+        # grow and still fails a build that pulls in a library by accident.
         run: |
           size=$(stat -c %s launcher/app/build/outputs/apk/release/app-release.apk)
           echo "release APK: $((size / 1024)) KB"
-          test "$size" -lt 573440 || { echo "APK is over 560 KB; the launcher targets 1 GB TVs, keep it small"; exit 1; }
+          test "$size" -lt 131072 || { echo "APK is over 128 KB; the launcher targets 1 GB TVs, keep it small"; exit 1; }

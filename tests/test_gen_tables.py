@@ -27,9 +27,7 @@ END = "<!-- {}:end -->"
 
 README = f"""# Title
 
-![card](docs/card.jpg "2 TV models · 2 brands · 2 languages · 1 KB launcher")
-
-| **2 languages** | yes |
+Tested lists for 2 TV models · 2 brands.
 
 Tested lists from contributors:
 
@@ -66,20 +64,12 @@ EXAMPLES = f"""# Examples
 Notes for models that have no tested list yet: hand-written.
 """
 
-STATS = 'STATS = [("2", "TV MODELS"), ("2", "BRANDS"), ("2", "LANGUAGES"), ("1 KB", "LAUNCHER")]\n'
-
-
 def tree(tmp, lists):
-    """A small repository: the three files the script writes parts of, and one folder per (name, tv.json)."""
+    """A small repository: the two files the script writes parts of, and one folder per (name, tv.json)."""
     root = Path(tmp)
     (root / "examples").mkdir()
-    (root / "tools").mkdir()
     (root / "README.md").write_text(README, encoding="utf-8")
     (root / "examples" / "README.md").write_text(EXAMPLES, encoding="utf-8")
-    (root / "tools" / "readme_stats.py").write_text(STATS, encoding="utf-8")
-    for lang in ("de", "fr"):
-        (root / f"launcher/app/src/main/res/values-{lang}").mkdir(parents=True)
-        (root / f"launcher/app/src/main/res/values-{lang}/strings.xml").write_text("<resources/>\n")
     for name, data in lists:
         add(root, name, data)
     return root
@@ -128,7 +118,7 @@ class ThisRepositoryTest(unittest.TestCase):
         projector_lists = sum(1 for _, d in entries if d["brand"] in names)
         self.assertEqual(sum(bold) + len(plain) + projector_lists, len(entries))
         brands = len(bold) + len(plain) + len(names)
-        self.assertIn(f"{len(entries)} TV models · {brands} brands · ", readme)
+        self.assertIn(f"{len(entries)} TV models · {brands} brands", readme)
 
     def test_both_tables_are_in_the_same_alphabetical_order(self):
         texts = gen_tables.render(ROOT)
@@ -178,10 +168,7 @@ class GeneratorTest(unittest.TestCase):
             self.assertEqual(section(examples, "tv-table")[-1],
                              "| `tcl-c/` | TCL C | Android TV 11 | `com.tcl.ads` disabled |")
             self.assertEqual(section(readme, "tv-brands"), ["**TCL** 2 ·", "Sony ·"])
-            self.assertIn('"3 TV models · 2 brands · 3 languages · 1 KB launcher"', readme)
-            self.assertIn("| **3 languages** | yes |", readme)
-            self.assertIn('("3", "TV MODELS"), ("2", "BRANDS"), ("3", "LANGUAGES")',
-                          (root / "tools/readme_stats.py").read_text(encoding="utf-8"))
+            self.assertIn("Tested lists for 3 TV models · 2 brands.", readme)
             self.assertTrue(readme.endswith("Hand-written text stays.\n"))
             self.assertTrue(examples.endswith("Notes for models that have no tested list yet: hand-written.\n"))
 

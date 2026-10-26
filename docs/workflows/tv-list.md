@@ -28,7 +28,7 @@
 5. Change nothing outside the folder. The tables in `README.md` and `examples/README.md`, the brand line and the
    counts (the `TV models` number in the card's alt text) are generated from every `tv.json` by
    `tools/gen_tables.py`, which a maintainer runs after merging; CI compares them only on `main`.
-6. A `README.md` for TV-specific notes and a `config.json` with the dock are welcome in the folder. Do not add
+6. A `README.md` for TV-specific notes is welcome in the folder (the e-ink Home has no per-TV config file). Do not add
    install or restore scripts, Private DNS or AdGuard setup, or `pm uninstall` steps: the folder only
    disables, and `tools/disable.sh` and `tools/restore.sh` do the rest.
 

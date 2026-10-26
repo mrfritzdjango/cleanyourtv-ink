@@ -3,7 +3,7 @@
 Owner report for a China-market Hisense 65D62QH running 聚好看 JuUI 9. The tested package list for
 this unit lives in [`examples/hisense-65d62qh/debloat.txt`](../../examples/hisense-65d62qh/debloat.txt)
 and its launcher config in
-[`examples/hisense-65d62qh/config.json`](../../examples/hisense-65d62qh/config.json). **That list is
+`examples/hisense-65d62qh/config.json`. **That list is
 debloat only: it keeps the stock Home `com.jamdeo.tv.vod` enabled.** The launcher handover further
 down was tried on this same set as a separate experiment and is *not* part of the list — it is here
 because the two failures it runs into are firmware behaviour no package list can work around.
@@ -158,7 +158,7 @@ tools\venv\Scripts\python.exe -I tools\tv.py 'pm enable com.jamdeo.tv.vod'
 
 `dumpsys tv_input` is completely empty on this firmware: no `TvInputManager` inputs at all, so the
 launcher's Inputs pill has nothing to list. It uses the vendor source panel instead — see
-[`config.json`](../../examples/hisense-65d62qh/config.json):
+`config.json`:
 
 ```json
 "source_panel_service": "com.hisense.tv.inputs/com.hisense.tv.InputsUIService",

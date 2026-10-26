@@ -10,8 +10,8 @@ import java.util.List;
 /**
  * ink_home: the apps on the Home list, as the owner chose them on the TV (Settings, Home apps). The choice is kept in
  * the "ink_home" preferences with the dock_apps it was made under: when dock_apps changes (a rebuild with another
- * config.xml), the saved choice is ignored and the new dock_apps takes effect, as with the stock Home's saved order
- * (Order). Saving the dock_apps themselves clears the choice.
+ * config.xml), the saved choice is ignored and the new dock_apps takes effect. Saving the dock_apps themselves clears
+ * the choice.
  */
 final class InkApps {
     private static final String PREFS = "ink_home";
@@ -47,7 +47,7 @@ final class InkApps {
         if (text == null) return out;
         for (String pkg : text.split(",")) {
             String p = pkg.trim();
-            if (!p.isEmpty() && LibraryApps.validPackage(p) && !out.contains(p)) out.add(p);
+            if (!p.isEmpty() && validPackage(p) && !out.contains(p)) out.add(p);
         }
         return out;
     }
@@ -59,6 +59,24 @@ final class InkApps {
         if (from < 0 || from >= out.size() || to < 0 || to >= out.size()) return out;
         Collections.swap(out, from, to);
         return out;
+    }
+
+    /** An Android package name: dot-separated parts, each a letter or _ then letters, digits or _. */
+    static boolean validPackage(String pkg) {
+        if (pkg == null || pkg.isEmpty() || pkg.length() > 255) return false;
+        boolean first = true;
+        for (int i = 0; i < pkg.length(); i++) {
+            char c = pkg.charAt(i);
+            if (c == '.') {
+                if (first) return false;
+                first = true;
+            } else {
+                boolean letter = c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c == '_';
+                if (!letter && (first || c < '0' || c > '9')) return false;
+                first = false;
+            }
+        }
+        return !first;
     }
 
     /** At most this many app rows: the Home list holds eight rows above Screensaver, Calendar and Tasks among them. */

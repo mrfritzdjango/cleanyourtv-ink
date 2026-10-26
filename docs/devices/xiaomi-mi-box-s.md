@@ -42,9 +42,6 @@ Nothing broke between batches.
   voice (`KEY_VOICECOMMAND`, Assistant kept) and Netflix (`KEY_VIDEO`, scancode 393 is `NETFLIX` in
   the same `.kl`) all work with the stock launcher disabled.
 
-An empty `live_tv_package` (no tuner) can be pushed as a theme `config.json` with `tools/theme.ps1`,
-so `config.xml` stays at its defaults.
-
 ## Building on Windows without Android Studio
 
 `launcher/build-and-install.ps1` looks for a JDK only in `JAVA_HOME` or Android Studio's `jbr`. A

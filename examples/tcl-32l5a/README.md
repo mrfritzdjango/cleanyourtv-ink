@@ -59,12 +59,12 @@ powershell -ExecutionPolicy Bypass -Command "$env:TV_HOST='192.168.1.3'; tools\r
 
 To re-build and re-install the launcher with updated settings or key mappings:
 ```powershell
-powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost <tv ip> -InputKeyService -HomeKeyService
+powershell -ExecutionPolicy Bypass -File launcher\build-and-install.ps1 -TvHost <tv ip> -HomeKeyService
 ```
 
 If Gradle does not find a JDK 17, point `JAVA_HOME` at one first:
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$env:JAVA_HOME='C:\Users\Anas\.jdks\jbr-17.0.14'; $env:TV_HOST='192.168.1.3'; & 'launcher\build-and-install.ps1' -InputKeyService -HomeKeyService"
+powershell -ExecutionPolicy Bypass -Command "$env:JAVA_HOME='C:\Users\Anas\.jdks\jbr-17.0.14'; $env:TV_HOST='192.168.1.3'; & 'launcher\build-and-install.ps1' -HomeKeyService"
 ```
 
 ---

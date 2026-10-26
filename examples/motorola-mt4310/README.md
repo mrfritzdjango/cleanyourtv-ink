@@ -12,7 +12,7 @@ on Windows; replace `<tv ip>` with your TV's address.
   The TV's factory manager turns them back on at every boot, so disabling them doesn't stick (see the notes
   below).
 - **New Home:** the launcher in `launcher/` (`com.gathin.tvhome`), with this TV's dock in
-  [theme/config.json](theme/config.json): Netflix, YouTube, Disney+, Magis TV.
+  theme/config.json: Netflix, YouTube, Disney+, Magis TV.
 - **Left alone:** Netflix, Prime Video, YouTube, YouTube Music, Chromecast built-in, BrowseHere, the
   ambient screensaver, your own apps, and everything the TV needs (Live TV, HDMI, remote keys, Bluetooth,
   keyboard, Play Store, Play services).
@@ -50,12 +50,10 @@ stock launcher.
 
 ## Change the dock order
 
-Edit `dock_apps` in [theme/config.json](theme/config.json) (package names, left to right; four fit),
+Edit `dock_apps` in theme/config.json (package names, left to right; four fit),
 then push it, no rebuild needed:
 
-```powershell
-tools\theme.ps1 -TvHost <tv ip> examples\motorola-mt4310\theme
-```
+(upstream's launcher only: this edition sets the apps on Home on the TV, in Settings › Home apps.)
 
 Package names: `tools\venv\Scripts\python.exe -I tools\tv.py 'pm list packages -3'`. Netflix
 `com.netflix.ninja`, YouTube `com.google.android.youtube.tv`, Disney+ `com.disney.disneyplus`, Magis
@@ -67,7 +65,7 @@ TV `com.android.mgstv`, Prime Video `com.amazon.amazonvideo.livingroom`, Spotify
 Put a `wallpaper.jpg` (1280x720 is enough for this TV) next to `theme/config.json`, set
 `"wallpaper": true` there, and push the theme with the command above. `"wallpaper_dim": 40` darkens
 it so the tiles stay readable. Back to plain black: `"wallpaper": false` and push again. All theme
-keys: [themes/README.md](../../themes/README.md).
+keys: themes/README.md.
 
 ## Rebuild / reinstall the launcher
 
@@ -77,8 +75,7 @@ TV_HOST=<tv ip> tools/theme.sh examples/motorola-mt4310/theme
 ```
 
 The first builds the APK (JDK 17 and the Android SDK), installs it as Home and disables the stock
-launcher; the second pushes the dock theme. On Windows: `launcher\build-and-install.ps1` and
-`tools\theme.ps1`.
+launcher; the second pushed the dock theme for upstream's launcher. On Windows: `launcher\build-and-install.ps1`.
 
 ## Notes from this TV
 

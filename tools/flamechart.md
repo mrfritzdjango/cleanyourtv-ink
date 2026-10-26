@@ -32,4 +32,4 @@ A Home change usually needs two charts:
 - **Magenta is main and render thread time only.** Work moved to another thread or to the GPU isn't gone:
   add that thread as a lane, or use the `nav` GPU numbers.
 
-The whole before/after method for a pull request is in [`docs/workflows/perf-ab.md`](../docs/workflows/perf-ab.md).
+The whole before/after method for a pull request is in `docs/workflows/perf-ab.md`.

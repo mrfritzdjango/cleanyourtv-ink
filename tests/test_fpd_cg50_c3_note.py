@@ -242,21 +242,15 @@ class KeptPackagesTest(unittest.TestCase):
 
 
 class DocsPointersTest(unittest.TestCase):
-    def test_troubleshooting_bullet_carries_the_scancode_path(self):
+    def test_troubleshooting_bullet_points_at_the_note(self):
+        # The e-ink Home maps only KEYCODE_ALL_APPS; the bullet still names the codes that no keycode can match,
+        # the one helper there is, and the note with the worked example.
         bullet = bullet_containing(TROUBLE, "Which keycode")
         self.assertIn("`KEY_UNKNOWN`", bullet)
         self.assertIn("`KEY_PROGRAM`", bullet)
-        self.assertIn("settings_key_scancodes", bullet)
         self.assertIn("getevent -lt", bullet)
         self.assertIn("HOME_KEY_SERVICE=1", bullet)
         self.assertIn("devices/fpd-cg50-c3.md", bullet)
-
-    def test_prompt_tells_the_assistant_the_same(self):
-        bullet = prompt_bullet("stock launcher also answers the remote's app buttons")
-        self.assertIn("`KEY_UNKNOWN`", bullet)
-        self.assertIn("`KEY_PROGRAM`", bullet)
-        self.assertIn("settings_key_scancodes", bullet)
-        self.assertIn("only `config.xml`", bullet)
 
     def test_examples_index_links_the_note_once(self):
         pointers = [l for l in EXAMPLES_README.splitlines() if "../docs/devices/fpd-cg50-c3.md" in l]

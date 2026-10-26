@@ -8,19 +8,12 @@
 - [ ] `examples/<brand>-<model>/tv.json` with the TV, OS, brand and notes; nothing changed outside my folder (the README tables are generated from it)
 - [ ] Nothing in the list uninstalls
 
-### If this touches the launcher
-- [ ] Verified on a real TV, screenshot attached
-- [ ] D-pad checked from every edge (Up, Down, Left, Right)
-- [ ] No network, no background service, no new permission
-- [ ] New strings in `values/strings.xml` and the other `values-*` folders
-- [ ] Anything TV-specific is in `config.xml` or a theme, not in code
+### If this touches the e-ink Home, Today or `ink/`
+- [ ] Verified on a real TV, screenshot attached (no calendar, song or other personal details in it)
+- [ ] Up, Down, OK and Back checked with the real remote
+- [ ] The launcher still has no network permission, no background service and no new permission
+- [ ] Both apps build: `launcher/` and `addons/morning-board/` (`ink/` is compiled into each)
 
-### If this adds or changes a theme
-- [ ] `themes/<name>/config.json` and `themes/<name>/screenshot.jpg`: Home on a real TV with the theme, 1280×720 JPEG under 300 KB
-- [ ] A row in `themes/README.md` showing the screenshot
-
-### If this adds a theme key (a switch)
-- [ ] A screenshot of the key on a real TV and its row in `docs/switches.md`
-
-### If this adds an add-on
-- [ ] `addons/<name>/screenshot.jpg`: the add-on on a real TV, 16:9 JPEG under 300 KB, shown in its row in `addons/README.md`
+### If this adds or changes an animal
+- [ ] Drawing in `addons/morning-board/art/`, merged with `art/merge.py`
+- [ ] Shows baked with `motion/bake.js`; `node motion/check.js` reports 0 problems

@@ -67,7 +67,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * ink_home (config.xml): Home as an e-ink page. A text list (Calendar and Tasks from the Today add-on, then the dock
+ * The launcher's Home, an e-ink page. A text list (Calendar and Tasks from the Today add-on, then the dock
  * apps, Screensaver and Settings), the big clock, and while Calendar or Tasks is selected a preview of it in the middle
  * column, level with the first row, read from Today's provider because Home has no network. While Spotify plays, Today's NowPlaying puts
  * the song at the top right (cover in shades of ink, NOW PLAYING, song, artist), and with the Spotify row selected the
@@ -580,7 +580,7 @@ final class InkHome {
             case KeyEvent.KEYCODE_DPAD_RIGHT:
                 break;
             case KeyEvent.KEYCODE_MENU:
-                start(new Intent(activity, LauncherSettingsActivity.class));
+                openPage(P_SETTINGS, 0);   // the same Settings page as the Settings row
                 break;
             default:
                 Item it = items.get(selected);

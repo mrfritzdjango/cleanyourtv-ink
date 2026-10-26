@@ -108,7 +108,7 @@ With option B, use the TV's local address instead of `100.x.y.z`.
   setup wizard (`dumpsys wifi | grep -o 'cname=[^ ]*'`, see
   [TROUBLESHOOTING.md](TROUBLESHOOTING.md)). If it says setupwraith, have them forget and re-join
   the network in Settings first.
-- **Ask, don't guess.** The prompt's checklist questions (which apps, the dock, casting, voice,
+- **Ask, don't guess.** The prompt's checklist questions (which apps, the apps on Home, casting, voice,
   updates) are theirs to answer, and so is what's plugged into the USB ports.
 - **Leave the restore script with them**, or at least keep it where you can run it the next time
   you're connected.

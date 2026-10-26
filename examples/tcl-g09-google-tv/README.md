@@ -53,7 +53,7 @@ player).
 Edit `dock_apps` in `config.json`: package names, left to right; an app that isn't installed is skipped.
 `tools/tv.py 'pm list packages -3'` lists the installed ones. Push it again with the `theme.sh` line
 above, no rebuild needed. `com.tcl.tv` and `com.tcl.suspension` are in `hidden_apps` because the Inputs
-pill already covers Live TV and the inputs. All keys: [`themes/README.md`](../../themes/README.md).
+pill already covers Live TV and the inputs. All keys: `themes/README.md`.
 
 ## Remote app buttons
 

@@ -1,5 +1,5 @@
 name: Bug
-description: The launcher, a script or the prompt did something wrong
+description: The e-ink Home, Today, a script or the prompt did something wrong
 labels: [bug]
 body:
   - type: dropdown
@@ -33,7 +33,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Press Down twice from the dock
+        1. Press Down twice from Calendar
         2. Press Home
   - type: textarea
     id: logs

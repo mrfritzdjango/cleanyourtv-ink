@@ -12,7 +12,7 @@ real ones do. No ads, no root, nothing uninstalled, one line to undo.</p>
 </p>
 
 <p align="center">
-  <img src="docs/switches/ink_home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the now-playing block at the top right blurred">
+  <img src="docs/ink-home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the now-playing block at the top right blurred">
   <img src="addons/morning-board/screenshot.jpg" width="49%" alt="The Ink Menagerie screensaver on a Chromecast with Google TV: a gaur (Seladang) in light ink on a dark page, beside the big clock and the date">
 </p>
 
@@ -38,8 +38,8 @@ and redraws Home as e-ink.
   seconds; on the screensaver they go out on their own outings and come home. Left and right switch animals.
 - **Choose your apps on the TV.** Settings › Home apps adds, moves and removes the apps on Home, from every app on
   the TV, with no rebuild.
-- **Upstream's cleanup, unchanged.** Safe debloating (disable, never uninstall), the restore script and lists for
-  hundreds of TV models: everything below the line.
+- **A cleaned-up TV.** Clean Your TV's safe debloating (disable, never uninstall), the restore script and tested
+  lists for hundreds of TV models: [Clean up the TV itself](#clean-up-the-tv-itself), below.
 
 ## Set it up
 
@@ -75,9 +75,8 @@ git clone https://github.com/mrfritzdjango/cleanyourtv-ink.git && cd cleanyourtv
 5. **Now playing and last watched** (optional):
    `adb shell cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`.
 
-Undo: set Home and the screensaver back, then uninstall the two apps (they are yours, not the TV's); the commands
-are in [INK-PROMPT.md](INK-PROMPT.md#8-how-to-undo-it). `ink_home` false in `config.xml` gives back upstream's
-launcher instead.
+Undo: set Home and the screensaver back, then remove the two apps (Home and Today) in the TV's Settings › Apps; the
+commands are in [INK-PROMPT.md](INK-PROMPT.md#8-how-to-undo-it).
 
 ## Privacy
 
@@ -88,6 +87,17 @@ launcher instead.
 - Now playing reads the media session (title, artist, cover) of the apps listed in `options.xml`. It never reads
   your notifications, and nothing leaves the TV.
 - No accounts, analytics or telemetry.
+
+## The launcher
+
+The e-ink Home is one screen in plain Java with no libraries: **about 45 KB**, built for TVs with 1 GB of RAM. No
+internet permission, no background service, no polling; whatever needs the network or other apps' data comes from
+Today. How it looks and behaves, key by key: [docs/ink-home.md](docs/ink-home.md).
+
+The **TV** needs Android 8.0 (API 26) or newer: `minSdk` is a compile-time floor in
+[`launcher/app/build.gradle`](launcher/app/build.gradle), and the install script asks the TV for
+`ro.build.version.sdk` before it builds, so an older set is told both numbers instead of failing at
+`pm install` (see [Troubleshooting](docs/TROUBLESHOOTING.md) for what is left on such a set).
 
 ## Tested on
 
@@ -101,46 +111,11 @@ Built on [Clean Your TV](https://github.com/Gathin23/cleanyourtv) by Gathin and 
 drawn in code ([art/](addons/morning-board/art/)) and animated from field research
 ([motion/](addons/morning-board/motion/)).
 
----
+## Clean up the TV itself
 
-*Below is the upstream Clean Your TV README.*
-
-<p align="center">
-  <a href="https://cleanyour.tv"><img src="https://raw.githubusercontent.com/Gathin23/cleanyourtv/main/docs/banner.png" alt="CleanYourTV. Your TV, minus the ads. Strip the bloatware from any Android TV or Google TV over Wi-Fi and replace the ad-filled home screen with a clean launcher that looks like an Apple TV. No root, no cable, nothing uninstalled, and a one-line restore." width="800"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/Gathin23/cleanyourtv/stargazers"><img src="https://img.shields.io/github/stars/Gathin23/cleanyourtv?style=flat&cacheSeconds=1800&color=cfffcf&labelColor=15181e" alt="Stars"></a>
-  <a href="https://github.com/Gathin23/cleanyourtv/pulls?q=is%3Amerged"><img src="https://img.shields.io/github/issues-search?query=repo%3AGathin23%2Fcleanyourtv%20is%3Apr%20is%3Amerged&style=flat&cacheSeconds=1800&label=merged%20PRs&color=cfffcf&labelColor=15181e" alt="Merged PRs"></a>
-  <a href="https://github.com/Gathin23/cleanyourtv/network/members"><img src="https://img.shields.io/github/forks/Gathin23/cleanyourtv?style=flat&cacheSeconds=1800&color=cfffcf&labelColor=15181e" alt="Forks"></a>
-  <a href="https://github.com/Gathin23/cleanyourtv/graphs/contributors"><img src="https://img.shields.io/github/contributors/Gathin23/cleanyourtv?style=flat&cacheSeconds=1800&color=cfffcf&labelColor=15181e" alt="Contributors"></a>
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/README-%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87-cfffcf?style=flat&labelColor=15181e" alt="简体中文"></a>
-  <a href="README.vi.md"><img src="https://img.shields.io/badge/README-Ti%E1%BA%BFng%20Vi%E1%BB%87t-cfffcf?style=flat&labelColor=15181e" alt="Tiếng Việt"></a>
-  <a href="README.ja.md"><img src="https://img.shields.io/badge/README-%E6%97%A5%E6%9C%AC%E8%AA%9E-cfffcf?style=flat&labelColor=15181e" alt="日本語"></a>
-  <a href="https://buymeacoffee.com/gathint"><img src="https://img.shields.io/badge/support-%E2%9D%A4-ff5e8a?style=flat&labelColor=15181e" alt="Support, buy me a coffee"></a>
-  <a href="https://www.producthunt.com/products/cleanyourtv"><img src="https://img.shields.io/badge/Product%20Hunt-upvote%20%E2%96%B2-da552f?style=flat&logo=producthunt&logoColor=white&labelColor=15181e" alt="CleanYourTV on Product Hunt"></a>
-</p>
-
-<p align="center">
-  <a href="https://trendshift.io/repositories/310225"><img src="docs/trending-badge.png" alt="#1 trending repo of the week, via trendshift.io" width="360"></a>
-</p>
-
-<p align="center">
-  <a href="docs/PRESS.md"><img src="docs/card.jpg" alt="260 TV models · 77 brands · 25 languages · 497 KB launcher. Featured in TechCrunch, TechRadar, Tom's Guide, Mashable, Android Authority, XDA, FlatpanelsHD, It's FOSS, Phandroid, GIGAZINE, Xataka, WinFuture, Frandroid, Macitynet, Techaeris, TechPP and 180 more: 196 articles from 32 countries. Before: stock Google TV home with a sponsored ad. After: the Clean Your TV launcher." width="800"></a>
-</p>
-
-**The viral tweet:** [x.com/gathint/status/2111379569030939102](https://x.com/gathint/status/2111379569030939102)
-
-On 17 October 2026 I posted a before and after of my parents' TV, cleaned up by Claude Code over Wi-Fi.
-It reached 7.4M views, people started doing the same to their own TVs, and their replies turned into
-the lists here: 170+ TV models from 200+ contributors in four days. The repo was called tv-vibehack
-until the 19th; old links work.
-
-**Themes, switches and add-ons:** [cleanyour.tv/addons](https://cleanyour.tv/addons)
-
-**Official links:** the website is [cleanyour.tv](https://cleanyour.tv) and the code, launcher and
-tools live only in this repo. Other domains using the name, such as cleanyourtv.com, are not run by
-this project ([#1004](https://github.com/Gathin23/cleanyourtv/issues/1004)).
+The e-ink Home works on a stock TV, but most Android TVs also run a manufacturer's ad services, telemetry and
+preloads. This part is Clean Your TV's, kept as it is upstream: a coding assistant (or you, by hand) disables them
+safely over Wi-Fi, and one command puts everything back.
 
 ## How it works
 
@@ -151,7 +126,7 @@ developer options, allow your computer once, and the rest is standard Android to
 |---|---|
 | **Back&nbsp;up** | The list of installed packages and settings. |
 | **Disable** | The manufacturer's telemetry, ad services, content rows and preloaded junk, with `pm disable-user`. Nothing is uninstalled, so a restore script can undo every step. |
-| **Install** | A small native launcher, made the default home screen. |
+| **Install** | The e-ink Home, made the default home screen (about 45 KB), and optionally the Today add-on. |
 
 **No root, no cable, nothing uninstalled, and a one-line restore if you change your mind.**
 
@@ -163,7 +138,7 @@ before touching anything you might use.
 | You have | Do this |
 |---|---|
 | **A computer** | Use the prompt with a coding assistant: the three steps below. |
-| **Only an Android phone** | Use the community-built [Clean Your TV app](https://cleanyour.tv/app) by [@udhaykumarbala](https://github.com/udhaykumarbala): connect, analyse, clean, in about five minutes. No laptop, no coding agent. |
+| **Only an Android phone** | The community-built [Clean Your TV app](https://cleanyour.tv/app) by [@udhaykumarbala](https://github.com/udhaykumarbala) debloats the TV (connect, analyse, clean); it installs upstream's launcher, not this one. |
 
 With a computer, you need it on the same Wi-Fi as the TV and a coding assistant with shell access.
 
@@ -172,39 +147,11 @@ Any of these work: Claude Code (on [0G Private Computer](https://pc.0g.ai) or an
 | Where | What to do |
 |---|---|
 | **1. On the TV** | Settings → Device Preferences → About → press OK on **Build** seven times → back → Developer options → **USB debugging** on. If you see a Network or ADB debugging toggle, turn that on too. Keep the TV on. |
-| **2. On your computer** | Paste [`PROMPT.md`](PROMPT.md) into your assistant and fill in your TV model. |
-| **3. Follow along** | Accept "Allow USB debugging?" on the TV, then answer the checklist: which apps you use, the dock size and app order, whether to keep the voice assistant, Chromecast and updates. |
+| **2. On your computer** | Paste [`PROMPT.md`](PROMPT.md) into your assistant and fill in your TV model. For Calendar, Tasks and the animals afterwards, [`INK-PROMPT.md`](INK-PROMPT.md). |
+| **3. Follow along** | Accept "Allow USB debugging?" on the TV, then answer the checklist: which apps you use, the apps on Home and their order, whether to keep the voice assistant, Chromecast and updates. |
 
 The assistant backs up, debloats, builds and installs the launcher, and checks each step with
 screenshots pulled from the TV. With this repo as context it takes about fifteen minutes.
-
-## What you get
-
-A home screen that looks like an Apple TV and gets out of the way:
-
-| Part | What it looks like |
-|---|---|
-| **A pitch-black home** | A dock of your four favourite apps in a rounded band, where Apple TV puts it. |
-| **A top shelf** | Names the focused app in large type, with an ambient glow in a colour taken from its artwork. |
-| **The rest of your apps in a grid** | Slides up when you press Down. |
-| **One floating glass highlight** | Springs from tile to tile. The focused tile lifts and shows its name. |
-| **Three frosted buttons** | Inputs (HDMI ports under the names you gave them in the TV's settings, AV, Live TV), Wi-Fi or Ethernet with the network name, Settings. |
-| **A greeting, a thin clock and the date** | In [Outfit](https://fonts.google.com/specimen/Outfit), and a matching Clock screensaver. Set `show_stats` in config or a theme for one line under the clock: CPU, free memory and free storage. It stays off unless you turn it on, and it refreshes only while Home is on screen. |
-| **Themes and module cards** | Themes change colours, wallpaper, dock and columns without a rebuild, and module cards let other apps plug a tile in, only with your say-so. |
-
-And a TV that stops working against you: no sponsored rows, no "Discover" nags, no analytics
-phoning home, no apps you never asked for.
-
-| | |
-|---|---|
-| ![The top shelf names the focused app over an ambient glow in its colour](docs/focus-2-up-netflix.png) | ![The Inputs popup: HDMI ports with what is connected, AV and Live TV](docs/inputs-menu.jpg) |
-| *Top shelf and ambient glow* | *Inputs: HDMI with connection state, AV, Live TV* |
-| ![The grid with the glass highlight on a tile and its name beneath](docs/focus-1-fancode.png) | ![The Clock screensaver: a thin clock drifting over the glow](docs/clock-screensaver.png) |
-| *The grid, one glass highlight, the tile's name* | *Clock screensaver, drifts so nothing burns in* |
-| ![The aurora theme: a wallpaper and tinted pills, pushed without a rebuild](themes/aurora/screenshot.jpg) | ![Six columns and a six-app dock from a theme's config.json](themes/six-columns/screenshot.jpg) |
-| *Aurora theme, pushed with `tools/theme.sh`* | *Six columns and a six-app dock, same launcher* |
-| ![Moving a tile: held OK, chose Move, the tile is picked up and the others dim](docs/tile-move.jpg) | ![The App library: installed apps, one press adds an app back to Home](docs/app-library.jpg) |
-| *With `tile_menu`, hold OK on a tile, Move: arrows carry it, Back puts it down* | *App library: one press puts a removed app back on Home* |
 
 ## Supported TVs
 
@@ -215,9 +162,9 @@ Anything running **Android TV** or **Google TV**.
 | **Android TV, Google TV** | The debloat and the launcher. |
 | **Fire TV** | The debloat half only, since Fire OS will not hand Home to a third-party launcher. And on the 2015 Fire TV Box (Fire OS 5) even that half fails: every `pm` route is refused. |
 | **A few China-market TCL sets** | They refuse to install any launcher at all; their lists say so in the header. |
-| **Samsung (Tizen), LG (webOS)** | Different systems. See [SHOWCASE.md](SHOWCASE.md#other-platforms-fire-tv-and-lg-webos) for three webOS ports, and [docs/devices/samsung-tizen.md](docs/devices/samsung-tizen.md) for what a 2021 Samsung set answers over Wi-Fi (no ADB, so no `pm disable-user`) if you are weighing a Tizen port. |
+| **Samsung (Tizen), LG (webOS)** | Different systems, not supported. [docs/devices/samsung-tizen.md](docs/devices/samsung-tizen.md) records what a 2021 Samsung set answers over Wi-Fi (no ADB, so no `pm disable-user`). |
 
-Tested lists from contributors, one folder per model in [`examples/`](examples/):
+Tested lists from contributors for 260 TV models · 77 brands, one folder per model in [`examples/`](examples/):
 
 <!-- tv-brands:start: generated by tools/gen_tables.py from examples/*/tv.json; edit those, not this -->
 
@@ -520,8 +467,7 @@ tools/venv/bin/python -I tools/tv.py 'pm list packages'      # one shell command
 tools/disable.sh examples/xiaomi-mi-tv-4a/debloat.txt        # apply a debloat list
 tools/restore.sh examples/xiaomi-mi-tv-4a/debloat.txt        # undo it, stock launcher back
 tools/venv/bin/python -I tools/check.py examples/xiaomi-mi-tv-4a/debloat.txt   # what a firmware update undid
-TV_HOST=192.168.1.50 launcher/build-and-install.sh           # build the launcher and make it Home
-tools/theme.sh themes/aurora                                 # push a theme; --reset removes it
+TV_HOST=192.168.1.50 launcher/build-and-install.sh           # build the e-ink Home and make it Home
 ```
 
 | Tool | What it does |
@@ -534,14 +480,11 @@ tools/theme.sh themes/aurora                                 # push a theme; --r
 | [`tools/check.py`](tools/check.py) | Compares the TV with the list that was applied, for what a firmware update undid; `--fix` puts it back. |
 | [`tools/adb-closed.py`](tools/adb-closed.py) | Checks that the TV's network ADB port is closed once debugging is off: exits 0 when nothing answers, 1 while it is still open, 2 when the check itself could not run. No `nc` needed. |
 | [`tools/privacy.py`](tools/privacy.py) | Audits the TV for voice, ACR and telemetry candidates and prints the evidence for each; `--write` turns the findings into a list `disable.sh` and `restore.sh` already understand. |
-| [`tools/theme.sh`](tools/theme.sh) | Push a folder from [`themes/`](themes/) to the launcher and restart Home. |
-| [`tools/manage.py`](tools/manage.py) | List every add-on, theme and switch with its screenshot, see what is on the TV, and install, update or remove one by running its creator's own script. |
 | [`tools/bench.py`](tools/bench.py) | Measures the launcher that answers HOME: key latency, how far the focus moved, janky frames, cold start, return to Home, and the idle CPU and PSS it costs. Changes nothing on the TV and writes the raw per-key numbers to JSON; no extra install. |
 | [`tools/trace.py`](tools/trace.py), [`trace_report.py`](tools/trace_report.py) | Records Perfetto traces of the launcher (return to Home, cold start, D-pad) and reports where its time goes, per run and before against after. Optional: needs [`requirements-perf.txt`](tools/requirements-perf.txt). [Guide](tools/trace.md). |
 | [`tools/flamechart.py`](tools/flamechart.py) | Draws a before/after flame chart from those traces, for a pull request: one lane per thread on a shared time scale, the work a change targets in magenta with its total. Optional, like the trace tools. [Guide](tools/flamechart.md). |
 | [`tools/screendiff.py`](tools/screendiff.py) | Compares a before and an after screenshot pixel by pixel, leaving out the clock or anything you mask, and writes the pair with your Wi-Fi name blurred. Optional, like the trace tools. [Guide](tools/screendiff.md). |
-| [`tools/race_calendar.py`](tools/race_calendar.py) | Writes this season's F1 calendar into a theme for race-weekend mode, from the free Jolpica API. |
-| [`launcher/build-and-install.sh`](launcher/build-and-install.sh) | Builds a shrunk release (about 497 KB), installs it, switches Home, and rolls back if Home does not land on it. |
+| [`launcher/build-and-install.sh`](launcher/build-and-install.sh) | Builds the e-ink Home (about 45 KB), installs it, switches Home, and rolls back if Home does not land on it. `HOME_KEY_SERVICE=1` for remotes whose Home button sends `KEYCODE_ALL_APPS` (Xiaomi). |
 
 The scripts never leave the TV without a Home app: they only disable a stock launcher they recognise,
 and skip the Home app in a list until another launcher answers HOME. Details below.
@@ -584,6 +527,7 @@ Debloat list paths passed to `disable.sh` and `restore.sh` are relative to the d
 from, so your own lists can live outside the repository. Absolute paths also work.
 
 </details>
+
 ## The microphone, and what can be said about it
 
 "Which of these packages is listening?" has no honest one-line answer, and a permission scan makes
@@ -610,141 +554,6 @@ What the audit cannot do is prove intent. `appops` shows an op was touched, not 
 stream afterwards, and no scan of package names proves a TV is or is not recording. Disabling an
 assistant is a trade you make with a specific loss (the remote's mic button, voice search inside
 apps), which is why the report names that loss per package instead of calling it a win.
-
-## The launcher
-
-A small native home screen for Android TV: **about 497 KB**, plain Java, built for TVs with 1 GB of RAM.
-No blur, no video, no network permission, no background services.
-
-The **TV** needs Android 8.0 (API 26) or newer: `minSdk` is a compile-time floor in
-[`launcher/app/build.gradle`](launcher/app/build.gradle), and the install script asks the TV for
-`ro.build.version.sdk` before it builds, so an older set is told both numbers instead of failing at
-`pm install` (see [Troubleshooting](docs/TROUBLESHOOTING.md) for what is left on such a set).
-
-| What | How it works |
-|---|---|
-| **Configure** | Dock order, hidden apps, Live TV app, 4 to 7 tiles per row, reduced motion. All in [`config.xml`](launcher/app/src/main/res/values/config.xml) |
-| **Settings on the TV** | Hold OK on Settings for launcher settings. Optional `launcher_settings_button` makes a normal click open them directly; TV settings remain on the settings page and their app tile. |
-| **Themes** | Background, wallpaper and layout from a `config.json` pushed over Wi-Fi, no rebuild. eight ship in [`themes/`](themes/), the built-in `default/` included |
-| **25 languages** | Follows the TV's language, with a fully mirrored right-to-left layout for Hebrew |
-| **App library** | Optional: browse every installed app and add or remove Home shortcuts. See [the app library guide](docs/app-library.md) |
-| **Tile menu** | Optional (`tile_menu`): hold OK on a tile for Move, Remove from Home and App info. Off, holding OK opens App info |
-| **Module cards** | Any TV app can offer its own tile; you approve each one once. See [`docs/modules.md`](docs/modules.md) |
-| **Add-ons** | Optional apps that plug in as module cards, kept in [`addons/`](addons/) and never built into the launcher |
-| **Clock screensaver** | A drifting clock over the glow, so nothing burns in |
-| **Remote keys** | Keeps the Input, YouTube and gear buttons working after the stock launcher is gone |
-
-<details>
-<summary><b>Build it yourself</b></summary>
-
-It needs JDK 17 and Android SDK platform 34. On macOS: `brew install openjdk@17 android-commandlinetools`
-and `sdkmanager "platforms;android-34" "build-tools;34.0.0"`. On Linux the install script finds
-`~/Android/Sdk` and the `java` on your PATH.
-
-</details>
-
-<details>
-<summary><b>Configure</b></summary>
-
-[`config.xml`](launcher/app/src/main/res/values/config.xml) sets the dock order, hidden apps, the Live TV
-package, columns (tiles shrink from 5 up), rows under the dock, an optional VPN app for the network pill,
-and `reduced_motion` for TVs whose GPU cannot keep up. Themes set the same keys plus a background colour
-and a wallpaper.
-
-</details>
-
-<details>
-<summary><b>Launcher settings and the default home</b></summary>
-
-- Click **Settings** for the TV's own settings. Hold OK on it and choose **Launcher settings**, or click it
-  straight away with `launcher_settings_button`. The launcher's own page has these rows, top to bottom:
-  - **Reorder apps**, only with `launcher_settings_button`: OK picks an app up, the arrows move it, Back
-    places it, and Back again finishes.
-  - **Apps per row** 4, 5, 6 or 7; **Rows below dock** 0 to 3, how many rows of tiles stay visible under the
-    dock band; **Dock band opacity** 100%, 70%, 50% or 30%. The last two only do anything while the dock is
-    its own row (`dock_row`, on by default).
-  - **Wallpaper**: one picture from the theme's collection (or its `wallpaper.jpg`), **None**, or **Theme
-    default**. A pick holds that picture and stops the rotation until you choose Theme default, press
-    Follow theme, or push the theme again.
-  - **Animations** on or off, and **Advanced effects** (tile lift, icon zoom and smooth ambient-colour
-    transitions; they may use more memory) once animations are on.
-  - **Open on start**, only with `open_on_start_choice`: Off, or an app that opens instead of Home the first
-    time Home comes up after the TV starts. Once per boot, so Home and Back still reach the launcher.
-  - **Follow theme (reset on-TV choices)**, which clears every choice above. Pushing or resetting a theme
-    clears them too.
-  - **Choose default home** opens Android's home picker, and **TV system settings** the TV's own settings
-    page.
-- **Change the default home:** Launcher settings and the optional Default-home tile
-  (`show_home_settings_shortcut`) open Android's home picker. Choose the original launcher to stop using
-  CleanYourTV as Home, or CleanYourTV to return. The original launcher must be enabled; if the install
-  script disabled it, run the restore script below first. Some TVs provide no home picker.
-
-</details>
-
-<details>
-<summary><b>Languages</b></summary>
-
-English, German, Spanish, Catalan, French, Russian, Serbian (Latin), Polish, Czech, Italian, Portuguese,
-Turkish, Arabic, Hebrew, Simplified Chinese, Traditional Chinese (Taiwan), Thai, Finnish, Vietnamese,
-Bangla, Indonesian, Norwegian Bokmål, Dutch, Uzbek (Latin) and Ukrainian. The launcher follows the TV's language. Android 13+ can set it for the launcher
-alone: `tools/tv.py 'cmd locale set-app-locales com.gathin.tvhome --locales ca'`.
-
-Hebrew mirrors the layout: menu buttons on the left, date and clock on the right with the greeting above,
-dock and app rows starting on the right with matching remote navigation, the input selector's icons and
-labels on the right, and dates with the month prefix ב (for example, 19 באוקטובר). The Clock screensaver
-right-aligns its date and time. Russian covers every screen, including race weekends, festival greetings and the Shamsi date. Other
-languages keep their original layouts.
-
-</details>
-
-<details>
-<summary><b>Module cards</b></summary>
-
-Any TV app can declare its own tile (label, caption, glow). The launcher asks you once per app, keeps it
-hidden by default, and remembers the answer for that app's signing key and card name. Hold OK on Settings
-and choose Module cards to change your mind. How to make one: [`docs/modules.md`](docs/modules.md); the
-contract: [`docs/specs/card.md`](docs/specs/card.md).
-
-</details>
-
-<details>
-<summary><b>Clock screensaver</b></summary>
-
-Pick "Clock" in the TV's screensaver settings, or over ADB:
-
-```bash
-tools/tv.py 'settings put secure screensaver_components com.gathin.tvhome/.ClockDream; settings put secure screensaver_enabled 1'
-```
-
-</details>
-
-<details>
-<summary><b>Remote keys</b></summary>
-
-- An optional accessibility service keeps the remote's **Input** button working on Google TV
-  (`INPUT_KEY_SERVICE=1` at install).
-- It can bring back other buttons only the stock launcher answered, such as the **YouTube** button
-  (`app_keys` and `input_key_keycodes`, in config.xml or a theme; `HOME_KEY_SERVICE=1` reads `app_keys` too).
-- A `hold:` prefix on an `app_keys` entry gives that button a second app: a normal press opens the
-  unprefixed app, holding for half a second opens the hold one (by keycode or `hold:scan:...`).
-- In place of an app, an `app_keys` entry can name an action: `back`, `home`, `recents`, `mute`, `sleep`,
-  `screensaver`, `settings` or `wifi`, so a spare colour button can mute the TV or, held, put it in standby.
-- `HOME_KEY_SERVICE=1` also fixes sticks whose Home key sends ALL_APPS, and opens Settings from the remote's
-  **gear** button, even one Android does not map (scancodes or keycodes in config.xml).
-- With `settings_key_panel` the gear opens a [small quick settings panel](docs/quick-settings-panel.jpg)
-  over Home or any app: TV settings, Display, Network, Apps and Launcher settings.
-
-</details>
-
-<details>
-<summary><b>Navigation and artwork</b></summary>
-
-Up and Down move one row. The top buttons never fall through to tiles, and Down from them returns to the
-dock tile you came from. The last focused app is remembered, and installing or removing an app refreshes
-the tiles while Home is open. App banners load at xhdpi or better, so low-density TV UIs do not downsample
-them before the focus zoom.
-
-</details>
 
 ## Restoring your TV
 
@@ -843,7 +652,9 @@ three that matter most:
 
 Yes. [@udhaykumarbala](https://github.com/udhaykumarbala) built a free, open-source [phone app](https://cleanyour.tv/app)
 for Android that does the same cleanup over Wi-Fi: it connects to the TV, shows a plan first, saves a restore
-point, and only switches apps off, so everything can be put back. It's community-built.
+point, and only switches apps off, so everything can be put back. It's community-built, and it installs
+upstream's launcher: the e-ink Home and Today need a computer to build, because your calendar's address and key
+are built into your own copy.
 
 </details>
 
@@ -938,44 +749,28 @@ script for it is in [PR #84](https://github.com/Gathin23/cleanyourtv/pull/84).
 <summary><b>Can I just download the APK?</b></summary>
 
 Build it with the one-line script; it takes a minute and you
-control what goes on your TV. No prebuilt binaries.
+control what goes on your TV. No prebuilt binaries: Today carries your own calendar's address and key, so a shared
+APK couldn't work anyway.
 
 </details>
 
 ## Contributing
 
-The most useful contribution is your TV's debloat list, so the next person with that model does
-not have to rediscover it. [CONTRIBUTING.md](CONTRIBUTING.md) has the format and the testing we ask for.
-Contributing through a coding agent? [AGENTS.md](AGENTS.md) gives it the same rules.
-
-| How to help | What it means |
-|---|---|
-| **Your TV's debloat list** | The most useful one: the next person with that model skips the discovery. |
-| **Launcher and prompt** | Launcher improvements and sharper prompt wording are welcome too. |
-| **Built something on top?** | A launcher, a port, a theme: add it to [SHOWCASE.md](SHOWCASE.md), where eighty-one projects already live, sorted into home screens, forks, add-ons, tools and other platforms, with an index by TV brand. |
-
-The people whose work is in this repo:
-
-<a href="https://github.com/Gathin23/cleanyourtv/graphs/contributors"><img src="https://contrib.rocks/image?repo=Gathin23/cleanyourtv&columns=16&max=400" alt="Contributors"></a>
-
-<details>
-<summary><strong>Star history</strong></summary>
-
-<a href="https://star-history.com/#Gathin23/cleanyourtv&Date"><img src="https://api.star-history.com/svg?repos=Gathin23/cleanyourtv&type=Date" alt="Star history chart" width="640"></a>
-
-</details>
+Issues and pull requests are welcome: a TV this works on (or doesn't), a fix, a new animal, a clearer step in a guide.
+[CONTRIBUTING.md](CONTRIBUTING.md) has the format for a TV's debloat list and the testing we ask for; working through
+a coding agent, [AGENTS.md](AGENTS.md) gives it the same rules. Debloat lists for new TV models are also welcome
+[upstream](https://github.com/Gathin23/cleanyourtv), where most of these came from.
 
 ## Contact
 
 | For | Where |
 |---|---|
-| **Questions about your TV** | [GitHub Discussions](https://github.com/Gathin23/cleanyourtv/discussions) |
-| **Press and partnerships** | [hello@itsgathin.com](mailto:hello@itsgathin.com) |
-| **Security issues** | Report them privately through the [Security tab](https://github.com/Gathin23/cleanyourtv/security), see [`SECURITY.md`](SECURITY.md) |
+| **Questions and problems** | [Issues](https://github.com/mrfritzdjango/cleanyourtv-ink/issues) |
+| **Security issues** | Privately, as [`SECURITY.md`](SECURITY.md) describes |
 
 ## Legal
 
-- CleanYourTV is an independent open-source project. It is not affiliated with, endorsed by or sponsored
+- The Ink edition, like Clean Your TV, is an independent open-source project. It is not affiliated with, endorsed by or sponsored
   by any TV maker or platform. Brand and model names are used only to say which TV a list was tested on,
   and remain the trademarks of their owners.
 - It works only through settings the TV itself offers to its owner: Developer options, ADB debugging and
@@ -988,5 +783,5 @@ The people whose work is in this repo:
 
 ## Licence
 
-MIT, see [`LICENSE`](LICENSE). The Outfit typeface is under the SIL Open Font License, see
-`launcher/FONT-LICENSE-OFL.txt`.
+MIT, see [`LICENSE`](LICENSE). The Atkinson Hyperlegible typeface is under the SIL Open Font License, see
+[`addons/morning-board/FONT-LICENSE.txt`](addons/morning-board/FONT-LICENSE.txt).

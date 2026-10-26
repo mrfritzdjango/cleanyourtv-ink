@@ -1,16 +1,17 @@
 # AGENTS.md
 
 Instructions for coding agents (Claude Code, Codex, Gemini CLI, Cursor, Copilot and others) working in
-this repository. People should start with [README.md](README.md) and [CONTRIBUTING.md](CONTRIBUTING.md);
-this file repeats their rules in the form an agent needs, and links to them for the detail.
+this repository, the Ink edition of Clean Your TV. People should start with [README.md](README.md) and
+[CONTRIBUTING.md](CONTRIBUTING.md); this file repeats their rules in the form an agent needs.
 
 ## First: which job are you doing?
 
 | You were asked to | Do this |
 |---|---|
-| Clean up a TV: debloat it, install the launcher, push a theme | Read [PROMPT.md](PROMPT.md) and follow it exactly, on the real TV. Use the tools in `tools/` and the launcher in `launcher/` rather than writing new ones; the only file you need to change is `launcher/app/src/main/res/values/config.xml`, or a theme's `config.json`, for this TV. Do not edit the repo's docs, tests or other code, and do not open issues or pull requests unless the person asks you to. |
+| Clean up a TV: debloat it and install the e-ink Home | Read [PROMPT.md](PROMPT.md) and follow it exactly, on the real TV. Use the tools in `tools/` and the launcher in `launcher/` rather than writing new ones; the only file you need to change is `launcher/app/src/main/res/values/config.xml` (`dock_apps`) for this TV. Do not edit the repo's docs, tests or other code, and do not open issues or pull requests unless the person asks you to. |
 | Install the Ink edition on a TV: the e-ink Home, the Today add-on, the animal screensaver | Read [INK-PROMPT.md](INK-PROMPT.md) and follow it on the real TV. The rules below still apply. |
-| Change this repo: a TV list, a fix, a translation, a theme, docs | Skip the next section and read on from [Repo map](#repo-map). |
+| Connect someone's Google Calendar and Tasks | Walk them through [docs/google-calendar-tasks.md](docs/google-calendar-tasks.md); they click, you explain. Never put their key in a commit, issue or screenshot. |
+| Change this repo: a TV list, a fix, docs, an animal | Skip the next section and read on from [Repo map](#repo-map). |
 
 ### Cleaning a TV: the rules that are not negotiable
 
@@ -47,7 +48,7 @@ this file repeats their rules in the form an agent needs, and links to them for 
 - **Disable in small batches** and screenshot between them (`tools/tv.py --screenshot shots/01.png`).
   Live TV, HDMI and some streaming apps give empty screenshots; that is the TV, not damage.
 - **An injected key is not proof** for a remote button that goes through an accessibility helper: ask the
-  person to press the real button. `am force-stop com.gathin.tvhome` switches those helpers off.
+  person to press the real button. `am force-stop com.gathin.tvhome` switches that helper off.
 - **Close ADB afterwards.** USB debugging and Network/ADB debugging off, authorisations revoked, reboot,
   then `tools/adb-closed.py <tv ip>` must report the port closed. Port 5555 is plaintext.
 - **Stop and say so** when the TV refuses: `pm disable-user` refused for every package, a sideload that
@@ -62,115 +63,81 @@ share their TV's list afterwards, follow [`docs/workflows/tv-list.md`](docs/work
 
 | Path | What it is |
 |---|---|
-| `PROMPT.md` | The prompt people paste into their agent. Brand-neutral; safety rules live here. |
-| `README.md` | Front page, with the TV table (generated from `examples/*/tv.json` by `tools/gen_tables.py`) and the Tools table. `README.zh-CN.md` and `README.vi.md` are translations. |
-| `CONTRIBUTING.md` | The contributor guide for people. "Where does my idea go?" is the routing table. |
-| `SECURITY.md` | Private vulnerability reporting. |
-| `SHOWCASE.md` | Projects built on this repo that live in their own repositories. |
-| `CODE_OF_CONDUCT.md` | Includes the rule against publishing device identifiers, Wi-Fi names and IPs. |
-| `examples/` | One folder per tested TV model: `debloat.txt`, `tv.json` (its row in the TV tables), sometimes a `README.md` and a `config.json`. Indexed in `examples/README.md`, whose table is generated too. |
-| `docs/` | `docs/TROUBLESHOOTING.md`, the module-card contract (`docs/modules.md`), `docs/devices/` for models with notes but no tested list, and the [workflows](#workflows). |
-| `launcher/` | The reference launcher, package `com.gathin.tvhome`: plain Java, AndroidX RecyclerView and DynamicAnimation, `minSdk` 26, no `INTERNET` permission. |
-| `themes/` | One folder per theme: `config.json`, a required `screenshot.jpg`, optional wallpapers. Keys are documented in `themes/README.md`. |
-| `addons/` | Optional module-card apps, each its own Gradle project, never built into the launcher. |
-| `tools/` | The ADB client (`tv.py`) and the scripts, listed in the README's Tools table. Shell scripts have PowerShell twins. Each script's usage is in its first lines, and the larger ones have a guide beside them (`tools/*.md`): read it before running the script. |
-| `tests/` | Python `unittest` suite: list format, README tables, press counts, themes, add-ons, the Home guard and the tools against fake TVs. |
-| `.github/workflows/` | `ci.yml` (tests, launcher build, APK size gate), `addons.yml` (also builds and tests Today when `ink/` changes). Upstream's PR review bot workflow is not part of this fork. |
-| `.github/maintainer/MAINTAINER.md` | The review policy the maintainer and the PR bot apply. |
-| `.github/pull_request_template.md` | The PR checklist. Fill it in. |
+| `README.md` | Front page: the Ink edition, then the TV cleanup (with the TV tables generated from `examples/*/tv.json` by `tools/gen_tables.py`) and the Tools table. |
+| `PROMPT.md` | The debloat-and-launcher prompt people paste into their agent. Brand-neutral; safety rules live here. |
+| `INK-PROMPT.md` | The Ink edition's setup prompt: Today, the screensaver, now playing, and how to undo each. |
+| `launcher/` | The e-ink Home, package `com.gathin.tvhome`: four classes (MainActivity, InkHome, InkApps, HomeKeyService), plain Java, no libraries, `minSdk` 26, no `INTERNET` permission. |
+| `ink/` | Code compiled into both apps: the animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing views (`Playing`, `Watched`, `CoverView`, `SongBlock`, `PlayingBars`). |
+| `addons/morning-board/` | Today: Calendar, Tasks, the morning board, now playing, last watched and the animal screensaver. Its `apps-script/` runs in the owner's Google account; `art/` builds the drawings and `motion/` the shows. |
+| `examples/` | One folder per tested TV model: `debloat.txt`, `tv.json` (its row in the TV tables), sometimes a `README.md`. Indexed in `examples/README.md`, whose table is generated too. |
+| `docs/` | `ink-home.md`, `google-calendar-tasks.md`, `TROUBLESHOOTING.md`, `REMOTE.md`, `docs/devices/` for models with notes but no tested list, and the [workflows](#workflows). |
+| `tools/` | The ADB client (`tv.py`) and the debloat, restore, privacy and drift-check scripts, listed in the README's Tools table. Shell scripts have PowerShell twins. Each script's usage is in its first lines. |
+| `tests/` | Python `unittest` suite: list format, README tables, the Home guard and the tools against fake TVs. |
+| `.github/workflows/` | `ci.yml` (tests, launcher build, APK size gate), `addons.yml` (builds and tests Today when it or `ink/` changes). |
 
 ## Where a change goes
 
-The core stays small on purpose. Pick the smallest home that fits (CONTRIBUTING, "Where does my idea go?"):
-
 | The change | Where it goes |
 |---|---|
-| A TV list, a fix, a translation, docs, a tool fix | A pull request here |
-| A small launcher switch that is off by default | A pull request here: see [`docs/workflows/launcher-switch.md`](docs/workflows/launcher-switch.md) |
-| A new look: colours, wallpaper, dock, columns, that existing config keys can carry | `themes/<name>/` |
-| A widget or tile that can be its own small app | `addons/<name>/`, as a module card that never touches `launcher/` |
-| A whole new launcher, a heavy restyle, a port to another platform, a lower `minSdk`, new permissions or network access, Fire TV Home takeover, a changed default for every TV | Your own repository, plus one row in `SHOWCASE.md` |
-| Safety rules in `PROMPT.md`, the Home-safety logic in the scripts, protected packages, CI and workflows, the APK size gate | Open an issue for the maintainer; do not change it in a PR |
-
-Every PR is reviewed by the maintainer and by a bot that apply `.github/maintainer/MAINTAINER.md`: read its
-verdicts before a non-trivial PR. Changes to the Home or launch path (Home key, boot, return to Home, the
-install scripts) are usually held for a run on a real TV.
+| A TV list, a fix, docs, a tool fix | A pull request here |
+| A change to the e-ink Home, Today, the animals or `ink/` | A pull request here; both apps must build |
+| A new look or a different launcher | A fork: the launcher here is one design on purpose |
+| Safety rules in `PROMPT.md`, the Home-safety logic in the scripts, protected packages | Open an issue first; do not change them in a PR |
 
 ## Workflows
 
-Step-by-step methods in `docs/workflows/`. Read the one that fits before you start; each opens with when to
-use it and ends with the check to run.
+Step-by-step methods in `docs/workflows/`:
 
 - [`tv-list.md`](docs/workflows/tv-list.md): add a tested TV's debloat list with its `tv.json`, or update one.
-- [`launcher-switch.md`](docs/workflows/launcher-switch.md): add an off-by-default launcher switch, within the size gate.
-- [`translation.md`](docs/workflows/translation.md): add a launcher language, or fill strings missing from one.
-- [`theme.md`](docs/workflows/theme.md): add a theme from existing keys, with its screenshot from a real TV.
-- [`addon.md`](docs/workflows/addon.md): add a module-card app that never touches `launcher/`.
-- [`showcase.md`](docs/workflows/showcase.md): list a project that lives in its own repository.
-- [`press.md`](docs/workflows/press.md): add an article and update the four press counts.
 - [`docs-notes.md`](docs/workflows/docs-notes.md): add a troubleshooting entry or a `PROMPT.md` fix, keeping pinned facts.
-- [`perf-ab.md`](docs/workflows/perf-ab.md): an optional check of a launcher change for performance regressions with
-  `tools/bench.py`, and measure an improvement or a failed check with traces, a report and flame charts.
 
 ## Before opening a PR
 
 | Check | Command or rule |
 |---|---|
-| Tests, as CI runs them | `python3 -m unittest discover -s tests -v` after `python3 -m venv tools/venv` and `tools/venv/bin/pip install -r tools/requirements.txt`. On `main`, CI sets `CLEANYOURTV_STRICT=1`, and its "README tables" job checks that the TV tables and counts are what `tools/gen_tables.py` writes. |
-| Launcher, if you touched `launcher/` | JDK 17, Android SDK platform 34, build-tools 34.0.0. In `launcher/`: `./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease`. Lint must stay at zero errors. |
-| APK size gate | `launcher/app/build/outputs/apk/release/app-release.apk` must be under 573,440 B (560 KB) in this fork (upstream's gate is 512 KB; the e-ink Home needs a little more). Linux: `stat -c %s`, macOS: `stat -f %z`. |
-| README rows | A new list adds only its folder, with a `tv.json`: the TV tables, the brand line and the counts are generated after merging, so leave them alone. A theme has its row in `themes/README.md`; an add-on in `addons/README.md`. |
-| One topic per PR | A TV list never rides inside a launcher feature PR. A device's list plus small fixes for that same device can be one PR. |
-| Tested on | Say which TV, Android version and firmware you tested on, in the PR template's "Tested on" line. |
-| Real TV | Launcher changes are verified on a real TV, not only the emulator: `tools/tv.py --screenshot shots/after.png DPAD_DOWN`. D-pad from every edge (Up, Down, Left, Right). A button handled by an accessibility helper needs a press on the real remote, and a force-stop of the launcher switches the helpers off (`docs/TROUBLESHOOTING.md`). |
-| Screenshots | Every visual change has a screenshot from the TV in the PR description. |
-| Performance | A performance claim shows `tools/bench.py` before and after, plus trace numbers. For any other launcher change the regression check in [`docs/workflows/perf-ab.md`](docs/workflows/perf-ab.md) is optional but welcome. |
-| Stray files | No files that nothing links to: screenshots belong in the PR description, not the tree. |
+| Tests, as CI runs them | `python3 -m unittest discover -s tests -v` after `python3 -m venv tools/venv` and `tools/venv/bin/pip install -r tools/requirements.txt`. On `main`, CI sets `CLEANYOURTV_STRICT=1` and checks the TV tables are what `tools/gen_tables.py` writes. |
+| Launcher and Today | JDK 17, Android SDK platform 34, build-tools 34.0.0. In `launcher/` and in `addons/morning-board/`: `./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease`. Lint stays at zero errors. |
+| APK size gate | `launcher/app/build/outputs/apk/release/app-release.apk` must be under 131,072 B (128 KB). Linux: `stat -c %s`, macOS: `stat -f %z`. |
+| The animals | After changing a drawing or a show: `node addons/morning-board/motion/check.js` reports 0 problems, and `bake.js` rebuilt `moves.bin`. |
+| README rows | A new list adds only its folder, with a `tv.json`: the TV tables and counts are generated after merging. |
+| One topic per PR | A TV list never rides inside a launcher PR. |
+| Real TV | Changes to the e-ink Home or Today are tried on a real TV with the real remote: Up, Down, OK, Back. |
+| Screenshots | Every visual change has a screenshot from the TV in the PR description, with nothing personal in it. |
 
 ## Hard rules
 
 Never do these in a PR:
 
-- **No prebuilt APKs or binaries** in the repo, not even as CI artifacts. People build from source.
+- **No prebuilt APKs or binaries** in the repo. People build from source; Today carries their own Apps Script
+  address and key, so a shared APK couldn't work anyway.
 - **No uninstalling.** No `pm uninstall` in a list or a script. `pm hide` or `pm block` only with the matching
   undo written in the list header.
-- **No network in the launcher:** no `INTERNET` permission, no network features, no analytics or telemetry, no
-  background services or polling, no blur or video. It targets TVs with 1 GB of RAM.
+- **No network in the launcher:** no `INTERNET` permission, no analytics or telemetry, no background services or
+  polling, no blur or video. What needs the network goes in Today. It targets TVs with 1 GB of RAM.
 - **No new launcher dependencies** without discussing them in an issue first.
 - **No changes to the safety rules** in `PROMPT.md`, the Home guard and other safety checks in
   `tools/disable.sh`, `tools/check.py` and `launcher/build-and-install.sh`, or the list of packages the TV
   needs, without the maintainer.
-- **No changing a default for every TV.** New behaviour is off until a theme or `config.xml` turns it on.
-- **Firmware updaters are better left enabled** (commented out in the list); a list that disables one says
-  why in its header.
-- **No Private DNS or AdGuard setup, and no install or restore scripts, inside a list folder.** The README
-  already has the optional DNS extra; a note that Private DNS works on that TV is fine.
+- **Firmware updaters are better left enabled** (commented out in the list); a list that disables one says why in
+  its header.
 - **No secrets or identifiers** in commits, lists or screenshots: no IP addresses, Wi-Fi names, account emails,
-  serial numbers, Android IDs, MAC addresses or ADB keys. Use `<tv ip>` or `192.168.1.50` in docs.
-- **Don't edit `.github/workflows/`** or the APK size gate in a normal PR. A PR whose main content is a new CI
-  workflow that builds or publishes releases is closed.
+  serial numbers, Android IDs, MAC addresses, ADB keys, Apps Script URLs or keys, calendar events or songs. Use
+  `<tv ip>` or `192.168.1.50` in docs. `addons/morning-board/board.properties` is git-ignored: keep it that way.
+- **The Apps Script asks for no more than it needs:** read-only Calendar and Tasks (`appsscript.json` `oauthScopes`).
 - **No root, no getting around app-store protection, no private builds** others cannot reproduce from this repo.
-- **No extras added to the PROMPT flow** beyond debloating and the launcher.
-- **Don't relax `minSdk`** (26) or the launcher's permissions; those are forks for `SHOWCASE.md`.
-- **Blur or crop** Wi-Fi names, people's names and cities (the top bar, a theme's `greeting_name`) before a
-  screenshot goes anywhere public. No TV Settings screenshots that show accounts, emails or device names.
-  From `tools/tv.py --probe`, `getprop` and backups, quote only the model, Android version and firmware build.
+- **Don't relax `minSdk`** (26) or the launcher's permissions.
 - **Security problems are reported privately**, as [SECURITY.md](SECURITY.md) describes, never in a public issue.
 
 ## Commit and PR style
 
 - Titles are `area: what changed`, in plain words, with the issue in parentheses when there is one:
   `examples: add Epson LS800 laser projector (Askey HA90, Amlogic), Android TV 14`,
-  `docs: an HDMI row opens any app that claims the channel MIME type (#805)`,
-  `Launcher: show_inputs_pill, to hide the Inputs pill`. The area is the folder or file the change is in:
-  `examples`, `Launcher`, `docs`, `tools`, `tests`, `themes`, `addons`, `SHOWCASE`, `README`, `Press`.
+  `Launcher: Menu opens Settings`, `Today: last watched for Disney+`. The area is the folder or file the change is
+  in: `examples`, `Launcher`, `Today`, `ink`, `docs`, `tools`, `tests`, `README`.
 - The body is one or two sentences on what changed and the TV it was tried on, then the template's checklist.
-  `Fixes #N` or `Closes #N` when it resolves an issue.
 - One topic per PR. Small is fine. Be kind in reviews.
 - Contributions are released under the repo's MIT licence.
 
 ## Where to ask
 
-Questions go to [GitHub Discussions](https://github.com/Gathin23/cleanyourtv/discussions); bugs, TV lists and
-ideas that need a launcher change or a new dependency go to an issue first, with the templates in
-`.github/ISSUE_TEMPLATE/`.
+Questions, bugs and ideas go to [issues](https://github.com/mrfritzdjango/cleanyourtv-ink/issues).

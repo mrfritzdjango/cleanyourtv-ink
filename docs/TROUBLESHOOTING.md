@@ -147,26 +147,6 @@ Things that bit us or contributors, so they don't bite you. Commands use `tools/
   tools/tv.py 'pm enable --user 0 com.google.android.apps.mediashell'
   ```
   Keep the package out of your list if you use Stremio on the TV, or cast from a phone.
-- **Picking HDMI 1 in the Inputs menu opened an unrelated app**, seen on an RCA Android TV 9
-  (Toptech/Zeasn firmware `RTK2851P`, Realtek RTD2851P,
-  [#805](https://github.com/Gathin23/cleanyourtv/issues/805)). The launcher switches to a passthrough
-  input with an *implicit* `ACTION_VIEW` on the input's channel URI
-  (`vnd.android.cursor.item/channel`), and only sends the theme's `input_action` when nothing claims
-  that intent at all. "Nothing claims it" is the catch: that firmware has no Live TV app for the URI,
-  and ES File Explorer (`com.estrongs.android.pop/.app.transferstation.FileTransferStationActivity`)
-  declares a `VIEW` filter for the same MIME type, so HDMI 1 opened the file manager and
-  `input_action` was never reached. A set with no handler at least shows "Not available on this TV";
-  a set with one wrong handler opens that app. Ask which app would take a row before blaming the
-  launcher:
-  ```sh
-  tools/tv.py 'cmd package query-activities --brief -a android.intent.action.VIEW -t vnd.android.cursor.item/channel'
-  ```
-  `live_tv_package` does not help: it is applied as `setPackage` on the Live TV row only, and the
-  HDMI and AV rows carry no package. Until the launcher checks that the handler is a TV-input app,
-  hide the rows instead: a theme with `source_panel_service` set and `live_tv_package` empty makes
-  the Inputs pill open the TV's own source panel (what the reporter did), or disable the app that
-  answers. Report another one rather than reading it as a firmware quirk: the wrong-handler case needs
-  a source change, not a setting.
 - **`adb exec-out screencap -p` gives a broken PNG** on some MediaTek sets (Xiaomi, and Amazon's
   own Fire TV smart TVs): the binary prints `Init wrapper sys mutex successful` on stdout first.
   Save on the TV and pull the file instead: `screencap -p /data/local/tmp/s.png`, or cut
@@ -437,30 +417,14 @@ Things that bit us or contributors, so they don't bite you. Commands use `tools/
   47 s, each cycle taking setupwraith and SystemUI down with `DeadSystemException` too. If you're
   already in the loop:
   `tools/tv.py 'pm enable --user 0 com.google.android.apps.tv.launcherx'`.
-- **`theme.sh` fails with "couldn't create file: Permission denied"**, seen on TCL G07 (Android 11): the
-  shell is not in the group that may write `Android/data`. `theme.sh` stages the files in
-  `/data/local/tmp` and writes them through the launcher's `ThemeProvider`, which creates them as the
-  launcher; `cp` is only the fallback for a launcher installed before that provider existed: run
-  `launcher/build-and-install.sh` once, then push the theme again.
-- **A theme push prints "is on the TV" and nothing changes**, seen on Android 14: the shell *can* write
-  `Android/data` there, so `cp` succeeded - but the file it created belonged to the shell (`ls -ln` shows
-  `2000 1078` instead of the launcher's uid) and the launcher logged `W TvHome.Config: ignoring
-  .../config.json: open failed: EACCES (Permission denied)`. Overwriting a file the launcher wrote itself
-  keeps its owner, so this only bit files that did not exist yet: it looked fine on a set that had been
-  themed before and did nothing on a fresh install or right after a reinstall. `theme.sh` now removes the
-  shell's copy and writes through the `ThemeProvider` first (the provider cannot truncate a file the shell
-  owns); on an older checkout, pushing the theme again after `launcher/build-and-install.sh` has written
-  the files once also fixes the ownership.
 - **Google TV comes back after a few remote presses**, seen on XGIMI (MoGo 3 Pro, Google TV 14). The
   remote's app buttons (YouTube, Netflix, Prime Video), the programmable button, the profile button and power
   all send F keys that the system hands to `com.xgimi.xrmservice/.XgimiGlobalKeyBroadcast` as global keys
   (`tools/tv.py 'dumpsys window' | grep -A40 mKeyMapping` lists them). That receiver runs
   `pm enable com.google.android.apps.tv.launcherx` on every one of them, so the stock launcher takes Home back.
-  Keys listed in `app_keys` are taken by the key services before global key dispatch, so XGIMI's receiver never
-  sees them: `examples/xgimi-mogo-3-pro` lists the app buttons. Power (F11) can't be taken over, because its
-  sleep and power-menu handling needs system permissions. For that one, run with `HOME_KEY_SERVICE=1` and set
-  `stock_home_redirect` to `com.google.android.apps.tv.launcherx`: if it comes back, its home screen is sent
-  straight back here, and `tools/disable.sh` with the list disables it again.
+  The e-ink Home has no key mapping that could take those buttons first, so on this projector leave launcherx
+  enabled and make the e-ink Home the default with `set-home-activity`; `tools/disable.sh` with the list disables
+  it again if it was. Upstream's launcher can take the app buttons (`app_keys`, see `examples/xgimi-mogo-3-pro`).
 - **No on-screen keyboard** after switching launchers, seen on Xiaomi: the default input method
   pointed at a Baidu keyboard that isn't installed. Fix:
   `tools/tv.py 'ime set com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME'`
@@ -474,10 +438,6 @@ Things that bit us or contributors, so they don't bite you. Commands use `tools/
   If the clock then jumps an hour ahead in spring, a fixed offset keeps it right:
   `tools/tv.py 'cmd alarm set-timezone GMT+03:30'`. The same applies to any country whose rules
   changed after the firmware was built.
-- **The network pill says "Wi-Fi" instead of the network name** after `pm clear com.gathin.tvhome`
-  or a reinstall from scratch: clearing the launcher's data also drops the location permission
-  Android 10 needs to read the SSID. `pm grant com.gathin.tvhome android.permission.ACCESS_FINE_LOCATION`
-  (the install script does this).
 - **Home is "Select a Home app"** after `tools/restore.sh` followed by re-applying a list: disabling a
   package that also claims HOME (PatchWall on Xiaomi) makes Android drop the default. The install
   script now picks the known stock launcher among the candidates by itself; otherwise choose one on
@@ -516,8 +476,7 @@ Things that bit us or contributors, so they don't bite you. Commands use `tools/
 
 ## Accessibility helper enabled but the remote button does nothing
 
-The optional `HomeKeyService` and `InputKeyService` only filter remote keys once Android has bound to
-them. The installer's `enabled` message means the setting was written, not that the service is bound.
+The optional `HomeKeyService` only filters remote keys once Android has bound to it. The installer's `enabled` message means the setting was written, not that the service is bound.
 Read the state without changing anything:
 
 ```sh
@@ -529,25 +488,22 @@ tools/tv.py 'dumpsys accessibility'
 | Helper | Component in the enabled-services list | Key it filters |
 | --- | --- | --- |
 | Home button | `com.gathin.tvhome/.HomeKeyService` | `KEYCODE_ALL_APPS` (not an ordinary `KEYCODE_HOME`) |
-| Input button | `com.gathin.tvhome/.InputKeyService` | `KEYCODE_TV`, `KEYCODE_TV_INPUT`, plus the keycodes in `input_key_keycodes` and `app_keys` (`config.xml` or a theme) |
 
-A force stop of the launcher (Settings > Apps, a cleaner app, `am force-stop`) takes both helpers off
-that list. With `restore_key_services` on (`config.xml` or a theme) and `WRITE_SECURE_SETTINGS` granted
-(`RESTORE_KEY_SERVICES=1` at install, `-RestoreKeyServices` on Windows), Home puts the helpers that were
-running back on the list the next time it starts; a helper turned off in Settings stays off.
+A force stop of the launcher (Settings > Apps, a cleaner app, `am force-stop`) takes the helper off that
+list. Run the install again with `HOME_KEY_SERVICE=1` (`-HomeKeyService` on Windows) to put it back.
 
-- **Home puts the helper back on the list after a force stop, and it still is not bound.** `dumpsys
+- **The helper is back on the list after a force stop, and it still is not bound.** `dumpsys
   accessibility` then shows `Bound services:{}`, `accessibility_enabled` falls back to `0`, and the helper
   sits under `Crashed services`: a killed helper is marked crashed, and Android never binds a crashed
   service again, whatever the list says. It drops the mark only when it sees the helper leave the list,
-  and after a force stop the list is already empty, so a plain removal changes nothing. `ServiceRepair`
-  therefore adds the helpers, removes them and adds them again, a second apart. Seen on a Hisense SmartTV
+  and after a force stop the list is already empty, so a plain removal changes nothing: add it, remove it
+  and add it again, a second apart. Seen on a Hisense SmartTV
   4K FFM (`songshan`, Android 11, `RTT2.220118.001`), whose standby (`com.hisense.STR_SUSPEND`) kills every
   third-party app except the one on screen (`PowerVtImp: kill 3rd app`): the remote's app buttons stopped
-  after the first standby with another app open. By hand, the same three writes:
+  after the first standby with another app open. The three writes:
 
   ```sh
-  tools/tv.py "settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService; sleep 1; settings put secure enabled_accessibility_services ''; sleep 1; settings put secure enabled_accessibility_services com.gathin.tvhome/.InputKeyService"
+  tools/tv.py "settings put secure enabled_accessibility_services com.gathin.tvhome/.HomeKeyService; sleep 1; settings put secure enabled_accessibility_services ''; sleep 1; settings put secure enabled_accessibility_services com.gathin.tvhome/.HomeKeyService"
   ```
 
 - **Enabled** means the component is in that user's colon-separated list (the class may be written in
@@ -564,32 +520,14 @@ running back on the list the next time it starts; a helper turned off in Setting
   press as `handleAction<keycode>` in `logcat`. TCL Google TV firmware logs it as
   `TclPhoneWindowManager: handleKeyBeforeQueueing, key = 4099, down = true` (a TCL 55C728, Google TV 11);
   read the log straight after the press, as its main buffer there holds well under a minute.
-  Put it in `input_key_keycodes` (opens Inputs) or
-  `app_keys` (`keycode:package`, or `hold:keycode:package` for a long press), reinstall with
-  `INPUT_KEY_SERVICE=1` and press the real button.
-  A press that `logcat` reports as `KEY_UNKNOWN` or `KEY_PROGRAM` cannot be matched by keycode at all,
-  because every unmapped button shares those codes: use the Linux scancode from
-  `tools/tv.py 'getevent -lt'` in `settings_key_scancodes` and install with `HOME_KEY_SERVICE=1`
-  (an RC-36 remote sends its gear on scancode 240 and its notifications button on 362 that way; see
-  [the FPD CG50-C3 note](devices/fpd-cg50-c3.md)).
-  Not every set answers those two routes, though ([#853](https://github.com/Gathin23/cleanyourtv/issues/853),
-  a PEAQ "AI PONT DE", `DVB99PQ` / Changhong `changi`, Google TV 14, `UKNV.260504.001`): a HID
-  consumer-control usage prints an evdev `MSC_SCAN` that is not necessarily the `KeyEvent.getScanCode()`
-  the framework reports, so a value read with `getevent -lt` can match nothing in
-  `settings_key_scancodes` (that set's gear printed `MSC_SCAN 000c009f`, and neither 159 nor 786591, the
-  two spellings of it, did anything), and `logcat -v time -s InputReader:D`, the filter `config.xml`
-  suggests, printed no key line at all there, for any button, only `Reconfiguring input devices`. What
-  Android really delivers comes from a temporary `Log.d` at the top of the helper's `onKeyEvent` printing
-  `getKeyCode()`, `getScanCode()` and `getDeviceId()`, rebuilt with `HOME_KEY_SERVICE=1` and read with
-  `tools/tv.py "logcat -s TvHomeKeys:D"` while pressing the real button: that set reported
-  `action=0 keyCode=83 scanCode=240 deviceId=9`, and `settings_key_keycodes = [83]` opened the TV's
-  Settings at once. So a `getevent` code that matches nothing is not proof the press never arrived, and
-  consuming the key in the helper also keeps it from the vendor receiver
-  `com.homwee.factory/.FactoryKeyReciver`, which `dumpsys window policy` routes `KEYCODE_NOTIFICATION`
-  to once the stock launcher is gone.
+  `tools/tv.py 'getevent -lt'` shows what the button itself sends while you press it.
+  The e-ink Home maps only one: a Home button that sends `KEYCODE_ALL_APPS` (`HomeKeyService`,
+  `HOME_KEY_SERVICE=1`). Any other button that went dead with the stock launcher needs that launcher left
+  enabled, or upstream's launcher, which maps keycodes, `KEY_UNKNOWN`/`KEY_PROGRAM` scancodes and long presses to
+  Inputs, Settings or an app ([the FPD CG50-C3 note](devices/fpd-cg50-c3.md) has a worked example).
 - **All vendor buttons die at once** and `logcat` says `GLOBAL_BUTTON ... process is bad`: the
-  global-key receiver crashes on the disabled launcherx and Android stops starting it. Map every such
-  keycode in the helpers, also for disabled apps. See [the MOSR4 note](devices/xiaomi-mitv-mosr4.md).
+  global-key receiver crashes on the disabled launcherx and Android stops starting it. Leave launcherx
+  enabled on such a set. See [the MOSR4 note](devices/xiaomi-mitv-mosr4.md).
 - **The list still names the helper but `accessibility_enabled` is `0`**, so nothing is bound and the
   button does nothing (not the force stop below): on a TCL C6K Pro (`G08`, Android 14,
   [#1047](https://github.com/Gathin23/cleanyourtv/issues/1047)) a reboot left
@@ -733,8 +671,7 @@ they do not map, so they are not consuming the volume key. The same was reported
 (`irobot`, Android 11, `RTM5.220609.003.1265`) with the launcher's own helpers, both and `InputKeyService`
 alone (#944), where the empty list was not tried because it also unhooks the buttons the helpers were
 installed for. An onn 4K Streaming Box (`YOC`, Google TV 14, `URO4.260304.011.B1.15051976`) does the same with
-`HomeKeyService` alone; there `key_filter` false (config.xml or a theme) brought the repeat back with the helper
-still bound, so a helper kept for something other than keys need not cost it. A Hisense 75U75N (`hengshan`,
+`HomeKeyService` alone. A Hisense 75U75N (`hengshan`,
 Google TV 12, `STT2.230310.002`) with a CEC soundbar does it with `HomeKeyService` alone, and its log shows where
 the repeat goes: the filter hands volume keys to the window policy first, Hisense's policy sends the CEC step and
 consumes the key, so no helper sees it and nothing repeats (the G09 note has the log). Check the state first, do
@@ -749,11 +686,8 @@ tools/tv.py 'dumpsys accessibility'
 This is a trade, not a defect to fix: the buttons the helpers exist for (a gear button sending
 `KEYCODE_NOTIFICATION` 83, app buttons sending vendor keycodes such as 4062) were answered by the stock
 home, so on a set whose list disabled launcherx only a helper can answer them. Either keep the repeat and
-install without `INPUT_KEY_SERVICE=1`/`HOME_KEY_SERVICE=1`, or keep the buttons and accept one step per
-press, or leave launcherx enabled and bind nothing, or keep the services bound and stop them filtering:
-`"key_filter": false` in a theme's `config.json` — the same bool in `config.xml` for a rebuild — makes
-them drop `FLAG_REQUEST_FILTER_KEY_EVENTS` at runtime, so the ramp comes back and the buttons they
-handled go dead, the same trade without a `settings` write. Write back the exact string the first read
+install without `HOME_KEY_SERVICE=1`, or keep the Home button and accept one step per press, or leave
+launcherx enabled and bind nothing. Write back the exact string the first read
 printed; the empty list also unbinds TalkBack. Bisect, keycodes and limits:
 [the G09 note](devices/tcl-55p71b-g09-key-repeat.md).
 

@@ -1,12 +1,9 @@
 """addons/ stays separate from the launcher: the core build never includes it, launcher/ never refers to it,
 and every add-on folder follows the rules in addons/README.md."""
 import re
-import sys
+import struct
 import unittest
 from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_themes import MAX_SCREENSHOT, jpeg_size  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ADDONS = ROOT / "addons"
@@ -14,9 +11,26 @@ LAUNCHER = ROOT / "launcher"
 TEXT = {".gradle", ".kts", ".java", ".kt", ".xml", ".properties", ".sh", ".ps1", ".pro", ".md"}
 
 
-# Add-ons merged before screenshots were required. This list only shrinks: once one gets a
-# screenshot.jpg, take it off here.
-SCREENSHOT_WANTED = {"capacity-stats", "photo-prints", "photo-screensaver"}
+# Add-ons without a screenshot.jpg yet. This list only shrinks: once one gets one, take it off here.
+SCREENSHOT_WANTED = set()
+MAX_SCREENSHOT = 300 * 1024
+
+
+def jpeg_size(data):
+    """(width, height) from the first SOF marker, or None if this is not a JPEG."""
+    if data[:2] != b"\xff\xd8":
+        return None
+    i = 2
+    while i + 4 <= len(data):
+        if data[i] != 0xFF:
+            return None
+        marker = data[i + 1]
+        length = struct.unpack(">H", data[i + 2:i + 4])[0]
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            height, width = struct.unpack(">HH", data[i + 5:i + 9])
+            return width, height
+        i += 2 + length
+    return None
 
 
 def addon_dirs():

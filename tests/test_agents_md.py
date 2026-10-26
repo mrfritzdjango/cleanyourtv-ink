@@ -107,7 +107,7 @@ class AgentsPathsTest(unittest.TestCase):
     def test_it_names_paths_at_all(self):
         # A parser that silently finds nothing would make the test above pass for any text.
         paths = [p for _, p in named_paths()]
-        for expected in ("PROMPT.md", "tools/disable.sh", ".github/maintainer/MAINTAINER.md", "examples/README.md"):
+        for expected in ("PROMPT.md", "tools/disable.sh", "INK-PROMPT.md", "examples/README.md"):
             self.assertIn(expected, paths)
 
 

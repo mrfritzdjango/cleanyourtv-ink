@@ -19,7 +19,7 @@ export TV_HOST=192.168.68.51
 | **Back after every boot** | The firmware turns `com.cltv.fast` (Free TV) and `com.google.android.katniss` (Assistant/voice) back on each boot. Nothing shows them without the stock home, so they are left that way |
 | **Kept** | YouTube, Prime Video, YouTube Music, Nebula Play, Chromecast built-in, AirPin (AirPlay), all apps you installed, and everything the projector needs (HDMI, remote, Bluetooth pairing, picture, keyboard, Play Store, Play Services). The setup wizard stays: it owns the saved Wi-Fi |
 | **Screensaver** | Switched from Ambient to the built-in "Colors" screensaver before Ambient was disabled |
-| **Home** | `com.gathin.tvhome`, configured by [`config.json`](config.json): dock YouTube, Netflix, Disney+, Prime Video; greeting "Sedir"; the Wi-Fi pill opens NordVPN |
+| **Home** | `com.gathin.tvhome`, configured by `config.json`: dock YouTube, Netflix, Disney+, Prime Video; greeting "Sedir"; the Wi-Fi pill opens NordVPN |
 
 A backup of the state before any change (package lists, getprop, all settings, Home, display size) is in
 `backup/nebula-laser-3-20261022-0140/` (not committed: it holds the serial number and device names).
@@ -48,7 +48,7 @@ To keep it enabled the next time the list is applied, put a `#` in front of its 
 On the projector: hold OK on the Settings pill (top right) and choose the reorder option, or open
 Launcher settings from the same menu.
 
-Or edit `dock_apps` in [`config.json`](config.json), in the order you want from left to right, and push it:
+Or edit `dock_apps` in `config.json`, in the order you want from left to right, and push it:
 
 ```bash
 tools/theme.sh examples/anker-nebula-d2426

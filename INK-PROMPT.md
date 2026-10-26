@@ -101,8 +101,8 @@ Tell the person these, with the values from step 3:
 - Home back to the stock launcher: `cmd package set-home-activity --user 0 <the Home from step 3>`.
 - Screensaver back: `settings put secure screensaver_components <the value from step 3>`.
 - Now playing off: `cmd notification disallow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`.
-- The two apps are theirs, sideloaded, not part of the TV: `pm uninstall com.gathin.tvhome` and
-  `pm uninstall io.github.mrfritzdjango.morningboard` remove them.
+- The two apps stay installed; to remove them, the person uninstalls **Home** and **Today** in the TV's
+  Settings › Apps (they are theirs, sideloaded, not part of the TV).
 
 ### 9. Close ADB
 

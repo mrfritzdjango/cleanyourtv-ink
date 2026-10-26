@@ -1,7 +1,7 @@
 # The e-ink Home
 
-`ink_home` turns the launcher's Home into a page of paper: one text list, a big clock, and nothing that slides,
-fades or glows. It is built for a TV that mostly shows a calendar, a few apps and, now and then, an animal.
+The launcher in this repo is one screen: Home as a page of paper, with one text list, a big clock, and nothing that
+slides, fades or glows. It is built for a TV that mostly shows a calendar, a few apps and, now and then, an animal.
 
 ```
   Calendar ███                              ░░░  NOW PLAYING
@@ -35,7 +35,7 @@ fades or glows. It is built for a TV that mostly shows a calendar, a few apps an
 - **Night ink**: light on dark. All day by default (`ink_night_always`), or 19:30 to 07:00.
 
 Keys: Up and Down move the ink bar, OK opens, and on the Spotify row OK held pauses or plays (a short press opens
-Spotify when you let go). Menu opens the launcher's own settings. Home on Home goes back to the top of the list.
+Spotify when you let go). Menu opens the same Settings page as the Settings row. Home on Home goes back to the top of the list.
 
 ## Choosing the apps
 
@@ -71,18 +71,15 @@ does), and clearing the launcher's data brings `dock_apps` back.
 To change the starting list itself, for every TV you build for, edit `dock_apps` in `config.xml` with the apps'
 package names. `tools/tv.py 'pm list packages'` lists them; HBO Max is usually `com.wbd.stream`.
 
-## Turning it on
+## Build settings
 
 In `launcher/app/src/main/res/values/config.xml`, then build and install as usual
 ([`launcher/build-and-install.sh`](../launcher/build-and-install.sh)):
 
 | Key | Default here | What it does |
 |---|---|---|
-| `ink_home` | `true` | The e-ink Home. `false` brings back the normal launcher, with every other config key as before. |
 | `ink_night_always` | `true` | Night ink all day. `false` switches between paper (07:00–19:30) and night ink. |
 | `dock_apps` | YouTube, Netflix, Prime Video, Hotstar, Apple TV, Spotify | The first app rows, in this order, until they are changed on the TV in Settings → Home apps; apps that are not installed are left out. |
-
-These are build settings: a pushed theme's `config.json` doesn't change them (the Keys table in [`themes/README.md`](../themes/README.md) marks them "`config.xml` only").
 
 ## What it needs from Today
 
@@ -104,7 +101,7 @@ The animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playin
 
 ## Size
 
-The fonts and the 5 MB of animal shows live in Today, so the launcher's release APK is about 514 KB with `ink_home`
-and the now-playing block. Upstream's CI gate is 512 KB; this fork's (`.github/workflows/ci.yml`) is 560 KB. Check it
+The launcher is four classes and the shared `ink/` code, with no libraries, and the fonts and the 5 MB of animal shows
+live in Today: its release APK is about 45 KB. CI (`.github/workflows/ci.yml`) fails a build over 128 KB. Check it
 after a change:
 `stat -f %z launcher/app/build/outputs/apk/release/app-release.apk` (macOS) or `stat -c %s` (Linux).

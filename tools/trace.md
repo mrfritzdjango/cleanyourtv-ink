@@ -81,4 +81,4 @@ and GPU waits where available; a draw's duration is not the full frame time.
   the first frame.
 - **Never commit the `.pftrace` files.** They hold the TV's process list.
 
-The whole before/after method for a pull request is in [`docs/workflows/perf-ab.md`](../docs/workflows/perf-ab.md).
+The whole before/after method for a pull request is in `docs/workflows/perf-ab.md`.

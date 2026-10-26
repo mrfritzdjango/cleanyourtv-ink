@@ -67,7 +67,7 @@ Put a dark 1920×1080 JPEG under about 300 KB at `theme/wallpaper.jpg`, set `"wa
 `theme/config.json`, and push the theme with the command above. For a rotating set, put the pictures in
 `theme/wallpapers/` and add `"wallpaper_rotation_minutes": 30` (and `"wallpaper_dim": 40` to darken them).
 `"background_color"` changes the plain black. To go back to plain black, set `"wallpaper": false` and push
-again. All keys are in [themes/README.md](../../themes/README.md).
+again. All keys are in themes/README.md.
 
 ## Undo everything
 

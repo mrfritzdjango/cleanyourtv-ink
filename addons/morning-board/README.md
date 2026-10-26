@@ -22,20 +22,20 @@ Left and right swap Calendar and Tasks, Back goes Home. Night ink (light on dark
 Google's sign-in for TVs can't read Calendar or Tasks, so a small script in your own account does, and answers the
 TV with today's agenda as JSON. Nothing else sees your data.
 
-1. Open [script.google.com](https://script.google.com), **New project**.
-2. Paste [`apps-script/Code.gs`](apps-script/Code.gs) over the default file.
-3. **Project Settings** › tick **Show "appsscript.json" manifest file**, then paste
-   [`apps-script/appsscript.json`](apps-script/appsscript.json) into it. It turns on the Tasks service and sets the
-   time zone to `Asia/Kuala_Lumpur`: **change `timeZone` to yours** (an
-   [IANA name](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) such as `Europe/London`).
-4. Choose **setup** in the function list and **Run**. Allow access to your Calendar and Tasks (Google warns the
-   app is unverified: it is yours; **Advanced › Go to project**). The log shows `key=…` and today's agenda.
-5. **Deploy › New deployment › Web app**: Execute as **Me**, Who has access: **Anyone**. Copy the URL ending in
-   `/exec`.
+**The step-by-step guide, with what Google asks at each step, how to test it and what to do when it goes wrong, is
+[docs/google-calendar-tasks.md](../../docs/google-calendar-tasks.md).** In short:
 
-Anyone with the URL **and** the key can read today's agenda and tick off your tasks, so keep both private. To
-change the key, delete `KEY` under Project Settings › Script properties and run `setup` again. After editing the
-script, use **Deploy › Manage deployments › Edit › New version** so the URL stays the same.
+1. [script.google.com](https://script.google.com) › **New project**. Paste [`apps-script/Code.gs`](apps-script/Code.gs)
+   over the default file.
+2. **Project Settings** › tick **Show "appsscript.json" manifest file**, then paste
+   [`apps-script/appsscript.json`](apps-script/appsscript.json) into it. It turns on the Tasks service and limits the
+   script to reading your calendars and your tasks. The time zone follows your Google Calendar's.
+3. Choose **setup** in the function list and **Run**. Allow it (Google warns the app is unverified: it is yours;
+   **Advanced › Go to project**). The log shows `key=…` and today's agenda.
+4. **Deploy › New deployment › Web app**: Execute as **Me**, Who has access: **Anyone**. Copy the URL ending in
+   `/exec`, and try it in a browser with `?key=<the key>` on the end.
+
+Anyone with the URL **and** the key can read today's agenda and tick off your tasks, so keep both private.
 
 ## 2. Build and install
 

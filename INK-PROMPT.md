@@ -51,10 +51,10 @@ step 8 puts back.
 
 ### 4. Ask the person, in one checklist
 
-- **Calendar and Tasks** from their Google account? Then walk them through the Apps Script in
-  [`addons/morning-board/README.md`](addons/morning-board/README.md#1-the-apps-script-your-google-account) (five steps
-  in their browser, including the time zone in `appsscript.json`), and have them put the `/exec` URL and the key into
-  `addons/morning-board/board.properties` themselves (copy `board.properties.example`). Never paste the key into a
+- **Calendar and Tasks** from their Google account? Then walk them through
+  [`docs/google-calendar-tasks.md`](docs/google-calendar-tasks.md), one step at a time in their browser (they click,
+  you explain; you can't do it for them), including the browser test in its step 4. Have them put the `/exec` URL and
+  the key into `addons/morning-board/board.properties` themselves (copy `board.properties.example`). Never paste the key into a
   commit, an issue or a screenshot. Without it the apps still work: Calendar and Tasks show how to set it up.
 - **The animal screensaver** in place of the current one?
 - **Now playing** (the song Spotify plays, and the last show watched in YouTube, Netflix and other streaming apps,

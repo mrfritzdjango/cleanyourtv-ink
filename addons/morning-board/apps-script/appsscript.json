@@ -1,8 +1,12 @@
 {
-  "timeZone": "Asia/Kuala_Lumpur",
+  "timeZone": "Etc/UTC",
   "dependencies": {
     "enabledAdvancedServices": [
-      { "userSymbol": "Tasks", "serviceId": "tasks", "version": "v1" }
+      {
+        "userSymbol": "Tasks",
+        "serviceId": "tasks",
+        "version": "v1"
+      }
     ]
   },
   "webapp": {
@@ -10,5 +14,9 @@
     "access": "ANYONE_ANONYMOUS"
   },
   "exceptionLogging": "STACKDRIVER",
-  "runtimeVersion": "V8"
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/tasks"
+  ]
 }

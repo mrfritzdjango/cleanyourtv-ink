@@ -33,7 +33,8 @@ function doGet(e) {
 }
 
 function agenda_() {
-  const tz = Session.getScriptTimeZone();
+  // Your Google Calendar's own time zone (Calendar settings), so nothing here needs setting per person.
+  const tz = CalendarApp.getTimeZone();
   const now = new Date();
   const today0 = dayStart_(now, tz);
   const tomorrow0 = nextDayStart_(today0, tz);
@@ -42,6 +43,7 @@ function agenda_() {
   const events = events_(today0, tomorrow0, tz);
   return {
     ok: true,
+    timeZone: tz,
     generated: Utilities.formatDate(now, tz, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     todayLong: Utilities.formatDate(now, tz, 'EEEE d MMMM'),
     todayShort: Utilities.formatDate(now, tz, 'EEE d MMM'),

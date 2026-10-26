@@ -12,7 +12,7 @@ real ones do. No ads, no root, nothing uninstalled, one line to undo.</p>
 </p>
 
 <p align="center">
-  <img src="docs/switches/ink_home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the song playing at the top right">
+  <img src="docs/switches/ink_home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the now-playing block at the top right blurred">
   <img src="addons/morning-board/screenshot.jpg" width="49%" alt="The Ink Menagerie screensaver on a Chromecast with Google TV: a gaur (Seladang) in light ink on a dark page, beside the big clock and the date">
 </p>
 
@@ -28,7 +28,7 @@ and redraws Home as e-ink.
 - **Your day at a glance.** With Calendar or Tasks selected, today's events or your open tasks appear beside the
   list. Open them for the full Calendar and Tasks screens, where OK ticks a task off in Google Tasks. A small Apps
   Script in your own Google account feeds them: no Google sign-in on the TV, nothing shared with anyone.
-  [Today add-on](addons/morning-board/README.md)
+  [How to connect your calendar](docs/google-calendar-tasks.md)
 - **Now playing and last watched.** While Spotify plays, the song sits at the top right with its cover in shades of
   ink and three little bars that move with the music. Select the Spotify row for a larger view with a progress line;
   hold OK to pause or play. Select YouTube, Netflix, Prime Video, Apple TV or Hotstar and the top right shows the
@@ -61,9 +61,9 @@ run upstream's [PROMPT.md](PROMPT.md) first.
 git clone https://github.com/mrfritzdjango/cleanyourtv-ink.git && cd cleanyourtv-ink
 ```
 
-1. **Calendar and Tasks** (optional): set up the Apps Script
-   ([five steps](addons/morning-board/README.md#1-the-apps-script-your-google-account)), then copy
-   `addons/morning-board/board.properties.example` to `board.properties` and fill in its URL and key.
+1. **Calendar and Tasks** (optional): connect your Google account with a small script of your own, about fifteen
+   minutes in a browser: [docs/google-calendar-tasks.md](docs/google-calendar-tasks.md). It ends with a URL and a
+   key in `addons/morning-board/board.properties`.
 2. **Today**: `cd addons/morning-board && ./gradlew assembleRelease` and install
    `app/build/outputs/apk/release/app-release.apk`.
 3. **The launcher**: `TV_HOST=<tv ip> launcher/build-and-install.sh` builds it, installs it and makes it Home. Build
@@ -83,7 +83,8 @@ launcher instead.
 
 - The launcher has no internet permission. Everything it shows comes from Today, through a permission only your own
   build of Today grants.
-- Today talks only to your own Apps Script, at the address and key built into your APK; keep both private.
+- Today talks only to your own Apps Script, at the address and key built into your APK; keep both private. The
+  script can read your calendars but not change them, and only ticks off a task when you press OK on it.
 - Now playing reads the media session (title, artist, cover) of the apps listed in `options.xml`. It never reads
   your notifications, and nothing leaves the TV.
 - No accounts, analytics or telemetry.

@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face{font-family:Atkinson;src:url(../app/src/main/res/font/atkinson_regular.ttf)}
+@font-face{font-family:Atkinson;font-weight:bold;src:url(../app/src/main/res/font/atkinson_bold.ttf)}
+body{margin:0;background:#121211;color:#CFCEC8;font-family:Atkinson,sans-serif}
+.g{display:grid;grid-template-columns:repeat(5,320px);gap:0 0;padding:28px 0 8px}
+.c{height:236px;text-align:center}
+.c canvas{display:block;width:320px;height:180px}
+.n{font-size:17px;font-weight:bold;margin-top:6px}
+.m{font-size:15px;color:#A3A29C;margin-top:3px}
+</style>
+<div id="g" class="g"></div>
+<script>
+// gallery.html - every animal in animals.json, drawn from its layers in night ink, with its English and Malay names.
+// Screenshot it (1600 wide) for the README's Ink Menagerie picture.
+const INK = '#CFCEC8', PAPER = '#121211';
+(async () => {
+  await document.fonts.ready;
+  const list = (await (await fetch('../app/src/main/assets/animals.json')).json()).animals;
+  const tile = document.createElement('canvas'); tile.width = tile.height = 5;
+  const t = tile.getContext('2d'); t.fillStyle = INK; t.beginPath(); t.arc(2.5, 2.5, 1.6, 0, 7); t.fill();
+  for (const a of list) {
+    const cell = document.createElement('div'); cell.className = 'c';
+    const c = document.createElement('canvas'); c.width = 640; c.height = 360; cell.appendChild(c);
+    const name = a.name.replace(/, also known as.*$/, '');
+    cell.insertAdjacentHTML('beforeend', `<div class="n">${name}</div><div class="m">${a.malay || ''}</div>`);
+    document.getElementById('g').appendChild(cell);
+    const [, , w, h] = a.viewBox.split(/\s+/).map(Number), k = Math.min(600 / w, 330 / h);
+    const g = c.getContext('2d'), dots = g.createPattern(tile, 'repeat');
+    g.translate((640 - w * k) / 2, (360 - h * k) / 2); g.scale(k, k);
+    const paths = a.layers.map(l => new Path2D(l.d));
+    a.layers.forEach((l, i) => { if (l.fill === 'ink' || l.fill === 'dots') { g.fillStyle = PAPER; g.fill(paths[i]); } });
+    a.layers.forEach((l, i) => {
+      const cut = l.fill === 'paper' && l.d.startsWith(`M0 0 L${w} 0 L${w} ${h} L0 ${h} Z`);
+      if (cut) { g.globalCompositeOperation = 'destination-out'; g.fill(paths[i]); g.globalCompositeOperation = 'source-over'; }
+      else if (l.fill === 'dots') { g.save(); g.scale(1 / k, 1 / k); g.fillStyle = dots; g.fill(scaled(paths[i], k)); g.restore(); }
+      else if (l.fill === 'ink' || l.fill === 'paper') { g.fillStyle = l.fill === 'ink' ? INK : PAPER; g.fill(paths[i]); }
+      if (l.stroke) { g.lineWidth = l.width || 2.5; g.lineJoin = g.lineCap = 'round'; g.strokeStyle = INK; g.stroke(paths[i]); }
+    });
+  }
+  document.title = 'done';
+})();
+// The halftone is drawn in screen pixels, so its path is scaled up rather than the dots scaled down.
+function scaled(p, k) { const q = new Path2D(); q.addPath(p, new DOMMatrix().scale(k, k)); return q; }
+</script>

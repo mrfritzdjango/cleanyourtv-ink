@@ -17,6 +17,9 @@ Needs Node 18 or later. Headless Chrome for `shot.sh`, Pillow for `grids.py`.
   `overview.html` shows all fifty at once (open it with file access allowed, as `shot.sh` does).
 - `./live.sh` bakes every show that passes the checks, builds Today and installs it on the TV adb is connected to
   (`ADB_SERIAL` to pick one, `ADB` for the adb binary, and `JAVA_HOME` set to a JDK 17 for Gradle).
+- `./film.sh <id> <pass|outing> <out.gif|out.mp4> [fps] [width]` renders a show as a GIF or an MP4 (headless Chrome
+  and ffmpeg); the README's clips are made with it. `gallery.html` draws all fifty with their names (the README's
+  `all-50.jpg` is a 1600×2396 screenshot of it).
 - `python3 grids.py` draws `grid0.png` … with every drawing on a 10% grid, to place a show's bends.
 - `python3 study.py` builds the Ink Menagerie page (research, designs and a theatre that plays every show).
 - `BRIEF.md` and `research.md`: how the shows were written, and the field research behind each one.

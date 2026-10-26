@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+body{margin:0;overflow:hidden}
+.g{display:grid;gap:0}
+canvas{display:block}
+</style>
+<div id="g" class="g"></div>
+<script src="engine.js"></script>
+<script src="motions/lib.js"></script>
+<script>
+// film.html?id=..&mode=pass|outing&fps=15&w=640&cols=8&night=1&dir=1 - every frame of one show, edge to edge in a
+// grid, for film.sh to cut into a GIF or an MP4. No labels, no gaps.
+const q = new URLSearchParams(location.search);
+const FILES = ['ref', 'walkers', 'ground', 'canopy', 'fliers', 'reef', 'bluewater', 'seabed'];
+const load = src => new Promise(ok => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = ok; document.body.appendChild(s); });
+(async () => {
+  for (const f of FILES) await load('motions/' + f + '.js');
+  Ink.loadAnimals(await (await fetch('../app/src/main/assets/animals.json')).json());
+  const id = q.get('id'), mode = q.get('mode') || 'pass', fps = +(q.get('fps') || 15), w = +(q.get('w') || 640);
+  const cols = +(q.get('cols') || 8), night = q.get('night') !== '0', dir = +(q.get('dir') || 1);
+  const h = Math.round(w * 9 / 16), n = Math.floor(Ink.duration(id, mode) * fps) + 1;
+  const g = document.getElementById('g'); g.style.gridTemplateColumns = `repeat(${cols}, ${w}px)`;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('canvas'); c.style.width = w + 'px'; c.style.height = h + 'px';
+    c.style.background = night ? '#121211' : '#E6E5DF';
+    g.appendChild(c);
+    const p = new Ink.Player(c, { font: 'Helvetica, Arial, sans-serif' }); p.night = night;
+    p.render(id, mode, i / fps, dir);
+  }
+  document.title = 'done';
+})();
+</script>

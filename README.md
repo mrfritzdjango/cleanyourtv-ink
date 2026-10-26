@@ -36,10 +36,47 @@ and redraws Home as e-ink.
 - **The Ink Menagerie.** 50 Malaysian land and sea animals, from the Malayan tapir to the whale shark and TITANE the
   titan triggerfish, each drawn in ink and halftone and animated from field research. One crosses Home every 30
   seconds; on the screensaver they go out on their own outings and come home. Left and right switch animals.
+  [Meet them](#the-ink-menagerie-50-malaysian-animals)
 - **Choose your apps on the TV.** Settings › Home apps adds, moves and removes the apps on Home, from every app on
   the TV, with no rebuild.
 - **A cleaned-up TV.** Clean Your TV's safe debloating (disable, never uninstall), the restore script and tested
   lists for hundreds of TV models: [Clean up the TV itself](#clean-up-the-tv-itself), below.
+
+## The Ink Menagerie: 50 Malaysian animals
+
+The screensaver and Home's passers-by are animals of Malaysia: 24 from the rainforests of the Peninsula and Borneo,
+26 from the reefs and seas around them. Each is drawn in ink, halftone dots and paper, and each moves the way the
+real animal does: the tiger's rolling shoulders, the hornbill's heavy wingbeats and glide, the orangutan swinging
+hand over hand, the whale shark's slow tail, the manta's three-second wing beat, the octopus crawling and jetting.
+On the TV every animal has two shows: a **pass** across Home, and an **outing** on the screensaver, where it leaves
+its spot, does the thing it is known for, and comes home. The caption gives its English name and what it is called
+in Malay.
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/menagerie/malayan-tiger.gif" width="100%" alt="The Malayan tiger walks across the screen through tall grass, its shoulders rolling with each step"><br><b>Malayan tiger</b><br><sub>Harimau Malaya</sub></td>
+    <td align="center"><img src="docs/menagerie/rhinoceros-hornbill.gif" width="100%" alt="The rhinoceros hornbill crosses with three heavy wingbeats and a glide"><br><b>Rhinoceros hornbill</b><br><sub>Enggang badak</sub></td>
+    <td align="center"><img src="docs/menagerie/bornean-orangutan.gif" width="100%" alt="The Bornean orangutan swings across hand over hand"><br><b>Bornean orangutan</b><br><sub>Orang utan</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/menagerie/whale-shark.gif" width="100%" alt="The whale shark glides across with a slow side-to-side tail through drifting plankton"><br><b>Whale shark</b><br><sub>Yu paus</sub></td>
+    <td align="center"><img src="docs/menagerie/reef-manta-ray.gif" width="100%" alt="The reef manta ray flies across with slow wing beats"><br><b>Reef manta ray</b><br><sub>Pari manta</sub></td>
+    <td align="center"><img src="docs/menagerie/day-octopus.gif" width="100%" alt="The day octopus crawls on its arms, then jets away mantle first"><br><b>Day octopus</b><br><sub>Kurita</sub></td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center"><img src="docs/menagerie/titan-triggerfish.gif" width="66%" alt="TITANE the titan triggerfish charges across, the screen turns to ink and TITANE! is stamped across it"><br><b>TITANE</b>, the titan triggerfish <sub>(Jebong)</sub>: one pass in five on Home belongs to TITANE, and it ends with a stamp.</td>
+  </tr>
+</table>
+
+<p align="center"><img src="docs/menagerie/all-50.jpg" width="100%" alt="All fifty animals of the Ink Menagerie in light ink on a dark page, each with its English and Malay name: land animals from the Malayan tapir to the Malayan peacock-pheasant, sea animals from the green sea turtle to the titan triggerfish"></p>
+
+**How they were made.** Every drawing is built in code from shapes ([`art/`](addons/morning-board/art/README.md)),
+not traced, so it stays crisp at any size. Every movement was researched first, from field guides and papers on how
+each animal walks, swims, glides or jets ([the research](addons/morning-board/motion/research.md)), then written as
+a show in JavaScript, checked, and baked into twelve keyframes a second
+([`motion/`](addons/morning-board/motion/README.md)). The TV blends between them on every frame of the display, so
+the motion is smooth on a Chromecast's small CPU. The clips above come from the same engine:
+`addons/morning-board/motion/film.sh <animal> pass clip.gif` makes one for any of the fifty.
 
 ## Set it up
 

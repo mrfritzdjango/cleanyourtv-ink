@@ -1,3 +1,57 @@
+# Clean Your TV · Ink edition
+
+A fork of [Clean Your TV](https://github.com/Gathin23/cleanyourtv) that turns the clean launcher into an **e-ink
+Home**, adds **Today** (your Google Calendar and Tasks on the TV) and the **Ink Menagerie**: 50 Malaysian animals,
+drawn in ink and halftone, that each move the way the real animal does.
+
+<p align="center">
+  <img src="docs/switches/ink_home.jpg" width="49%" alt="The e-ink Home on a Chromecast with Google TV: a text list of Calendar, Tasks, apps, Screensaver and Settings beside the big clock, with the song playing at the top right">
+  <img src="addons/morning-board/screenshot.jpg" width="49%" alt="The Ink Menagerie screensaver on a Chromecast with Google TV: a gaur (Seladang) in light ink on a dark page, beside the big clock and the date">
+</p>
+
+- **E-ink Home.** One text list (Calendar, Tasks, your apps, Screensaver), a big clock, and today's events or open
+  tasks above it when Calendar or Tasks is selected. Selection is an inverted ink bar; nothing slides, fades or
+  glows. Every 30 seconds an animal crosses the screen. [docs/ink-home.md](docs/ink-home.md)
+- **Today.** Calendar, Tasks (OK ticks a task off in Google Tasks) and a morning board, fed by a small Apps Script
+  in your own Google account: no Google sign-in on the TV, nothing shared with anyone.
+  [addons/morning-board](addons/morning-board/)
+- **Now playing.** While Spotify plays, the song sits at the top right of Home and the screensaver: its cover
+  redrawn in ink dots, the title and the artist. With the Spotify row selected it grows into a larger view with a
+  progress line; hold OK to pause or play. [addons/morning-board](addons/morning-board/README.md)
+- **Ink Menagerie screensaver.** From the Malayan tapir to the whale shark and TITANE the titan triggerfish, each
+  animal with a pass across Home and an outing on the screensaver, researched and animated one by one. Left and
+  right on the remote switch animals. Drawings in [art/](addons/morning-board/art/), moves in
+  [motion/](addons/morning-board/motion/).
+
+Everything else (debloating the TV safely over Wi-Fi, the restore script, the TV lists) is upstream's, unchanged,
+and documented below.
+
+## Install the Ink edition
+
+You need a computer with JDK 17 and the Android SDK (platform 34), and ADB access to the TV (upstream's
+[Quick start](#quick-start) covers turning on debugging).
+
+1. **The Apps Script** (optional, for Calendar and Tasks): five steps in
+   [addons/morning-board/README.md](addons/morning-board/README.md#1-the-apps-script-your-google-account), then
+   copy `addons/morning-board/board.properties.example` to `board.properties` and fill in the URL and key.
+2. **Today**: `cd addons/morning-board && ./gradlew assembleRelease`, then install
+   `app/build/outputs/apk/release/app-release.apk` on the TV.
+3. **The launcher**: `ink_home` is already on in `launcher/app/src/main/res/values/config.xml`; put your own apps in
+   `dock_apps` there. Then `TV_HOST=<tv ip> launcher/build-and-install.sh`. Build both apps on the same computer:
+   the launcher reads Today's agenda through a permission only an app signed with the same key gets.
+   A Chromecast with Google TV only offers Wireless debugging, which needs `adb pair` first (the upstream tools
+   can't pair); after that, `adb install -r` the two APKs.
+4. **The screensaver**: `settings put secure screensaver_components io.github.mrfritzdjango.morningboard/.AnimalDream`
+   over ADB ([details](addons/morning-board/README.md#3-the-screensaver)).
+5. **Now playing** (optional): `cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`
+   over ADB, once. Today reads only the media session, never your notifications.
+
+Tested on a Chromecast with Google TV HD (Google TV 14). `ink_home` false gives back upstream's launcher.
+
+---
+
+*Below is the upstream Clean Your TV README.*
+
 <p align="center">
   <a href="https://cleanyour.tv"><img src="https://raw.githubusercontent.com/Gathin23/cleanyourtv/main/docs/banner.png" alt="CleanYourTV. Your TV, minus the ads. Strip the bloatware from any Android TV or Google TV over Wi-Fi and replace the ad-filled home screen with a clean launcher that looks like an Apple TV. No root, no cable, nothing uninstalled, and a one-line restore." width="800"></a>
 </p>

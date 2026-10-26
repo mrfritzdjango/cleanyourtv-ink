@@ -6,6 +6,9 @@ android {
     namespace 'com.gathin.tvhome'
     compileSdk 34
 
+    // ink_home: the animal drawings and their shows (ink/), shared with the Today add-on, which ships the assets.
+    sourceSets.main.java.srcDirs += rootProject.file('../ink/src/main/java')
+
     defaultConfig {
         // Opt-in identity for firmware with a package-name HOME allowlist; see docs/devices/xiaomi-mitv-aetp0-dofus.md.
         applicationId providers.gradleProperty('launcherApplicationId').getOrElse('com.gathin.tvhome')

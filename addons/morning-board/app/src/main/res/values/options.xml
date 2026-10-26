@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- When the morning board opens by itself, on the TV's clock. wake_hour -1 turns the alarm off. -->
+    <integer name="wake_hour">-1</integer>
+    <integer name="wake_minute">0</integer>
+    <!-- The board keeps the screen on until this hour, then goes back to Home. -->
+    <integer name="board_until_hour">9</integer>
+    <!-- The screensaver shows a new animal every this many minutes. -->
+    <integer name="saver_change_minutes">1</integer>
+    <!-- Between its outings (its own way of moving about the screen) the screensaver's animal holds still this long. -->
+    <integer name="saver_still_seconds">20</integer>
+    <!-- Night ink (light on dark) for Calendar, Tasks and the screensaver between these times. The morning board stays on paper. -->
+    <string name="night_start" translatable="false">19:30</string>
+    <string name="night_end" translatable="false">07:00</string>
+    <!-- true: night ink all day, on every screen including the morning board, whatever the times above say. -->
+    <bool name="night_always">true</bool>
+    <!-- The apps whose songs show on Home and the screensaver (once NowPlaying is allowed, see the README): Spotify's
+         TV app, and its phone app if sideloaded. Add a package here to show another music app too. -->
+    <string-array name="now_playing_apps" translatable="false">
+        <item>com.spotify.tv.android</item>
+        <item>com.spotify.music</item>
+    </string-array>
+</resources>

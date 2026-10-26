@@ -1,0 +1,16 @@
+.gradle/
+build/
+app/build/
+local.properties
+# The Apps Script address and key: private, never commit.
+board.properties
+# The drawing tools' own environment and outputs (art/README.md); the app's animals.json is what is kept.
+art/venv/
+art/*/venv
+art/land.json
+art/sea.json
+art/*.png
+art/**/__pycache__/
+# What motion/study.py and motion/grids.py write
+motion/ink-menagerie.html
+motion/grid*.png

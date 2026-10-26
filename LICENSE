@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2026 Gathin
+Copyright (c) 2026 mrfritzdjango (the Ink edition: ink/, addons/morning-board/, the e-ink Home)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -25,3 +26,6 @@ SOFTWARE.
 The Outfit typeface in launcher/app/src/main/res/font/outfit.ttf is copyright
 The Outfit Project Authors and licensed under the SIL Open Font License 1.1,
 see launcher/FONT-LICENSE-OFL.txt.
+
+The Atkinson Hyperlegible typeface in addons/morning-board/app/src/main/res/font/ is copyright the Braille
+Institute of America and licensed under the SIL Open Font License 1.1, see addons/morning-board/FONT-LICENSE.txt.

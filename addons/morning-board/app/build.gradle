@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The Apps Script address and key, kept out of git in board.properties (see board.properties.example).
+def board = new Properties()
+def boardFile = rootProject.file('board.properties')
+if (boardFile.exists()) boardFile.withInputStream { board.load(it) }
+
+android {
+    namespace 'io.github.mrfritzdjango.morningboard'
+    compileSdk 34
+
+    // The animal drawings and their shows, shared with the launcher's e-ink Home (ink/ at the repo root).
+    sourceSets.main.java.srcDirs += rootProject.file('../../ink/src/main/java')
+
+    defaultConfig {
+        applicationId 'io.github.mrfritzdjango.morningboard'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+        buildConfigField 'String', 'BOARD_URL', "\"${board.getProperty('url', '')}\""
+        buildConfigField 'String', 'BOARD_KEY', "\"${board.getProperty('key', '')}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            // Sideloaded over ADB like the launcher: signed with the debug key.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    androidResources {
+        noCompress += ['bin']   // moves.bin holds gzipped shows already; stored, Shows can skip straight to one
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Test only (never in the APK): plain JVM tests, src/test. org.json is in Android but only stubbed for JVM tests.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+}

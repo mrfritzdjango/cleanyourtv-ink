@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Today</string>
+    <string name="dream_name">Ink animals</string>
+    <string name="agenda_permission">Read today\'s agenda</string>
+    <string name="now_playing_name">Today: now playing</string>
+    <string name="saver_hint">◀ ▶  more animals</string>
+    <string name="good_morning">Good morning</string>
+    <string name="calendar">‹ Calendar</string>
+    <string name="tasks">‹ Tasks</string>
+    <string name="today">TODAY</string>
+    <string name="tasks_label">TASKS</string>
+    <string name="my_tasks">MY TASKS</string>
+    <string name="done_label">DONE</string>
+    <string name="tomorrow_label">TOMORROW · %1$s</string>
+    <string name="today_label">TODAY · %1$s</string>
+    <string name="open_count">%1$d open</string>
+    <string name="nothing_today">Nothing on the calendar</string>
+    <string name="no_tasks">No open tasks</string>
+    <string name="key_ok">OK</string>
+    <string name="key_back">BACK</string>
+    <string name="key_sides">◀ ▶</string>
+    <string name="hint_home">Home</string>
+    <string name="hint_done">Mark done</string>
+    <string name="hint_to_tasks">Tasks</string>
+    <string name="hint_to_calendar">Calendar</string>
+    <string name="offline">offline · updated %1$s</string>
+    <string name="loading">Fetching today…</string>
+    <string name="unreachable">Can\'t reach your calendar yet.</string>
+    <string name="setup_title">Today needs its address</string>
+    <string name="setup_body">Put the Apps Script url and key in board.properties and build again (see the README).</string>
+</resources>

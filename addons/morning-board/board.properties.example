@@ -1,0 +1,3 @@
+# Copy to board.properties (git ignores it) and fill in from the Apps Script deployment, then build.
+url=https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec
+key=THE_KEY_SETUP_PRINTED

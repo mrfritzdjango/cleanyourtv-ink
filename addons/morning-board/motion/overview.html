@@ -1,0 +1,17 @@
+<!doctype html><meta charset="utf-8">
+<style>body{margin:0;background:#999;font:12px sans-serif}.g{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;padding:4px}.c{position:relative;background:#E6E5DF}.c canvas{width:100%;display:block}.c span{position:absolute;left:4px;top:2px;color:#900;font-weight:bold}</style>
+<div class="g" id="g"></div>
+<script src="engine.js"></script><script src="motions/lib.js"></script>
+<script>
+const q = new URLSearchParams(location.search), mode = q.get('mode') || 'pass', frac0 = +(q.get('at') || 0.5);
+const files = ['ref','walkers','ground','canopy','fliers','bluewater','reef','seabed'];
+(async () => {
+  for (const f of files) await new Promise(ok => { const s = document.createElement('script'); s.src = 'motions/' + f + '.js'; s.onload = ok; s.onerror = ok; document.body.appendChild(s); });
+  Ink.loadAnimals(await (await fetch('../app/src/main/assets/animals.json')).json());
+  for (const id of Object.keys(Ink.ANIMALS)) {
+    const c = document.createElement('div'); c.className = 'c'; const cv = document.createElement('canvas'); c.appendChild(cv);
+    const l = document.createElement('span'); l.textContent = id; c.appendChild(l); document.getElementById('g').appendChild(c);
+    try { new Ink.Player(cv).render(id, mode, Ink.duration(id, mode) * frac0, 1); } catch (e) { l.textContent += ' ERR ' + e.message; }
+  }
+})();
+</script>

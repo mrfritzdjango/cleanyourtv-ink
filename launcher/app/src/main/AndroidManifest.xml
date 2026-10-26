@@ -21,10 +21,15 @@
     <!-- YaOS (Yandex TV OS): HDMI, AV and the tuner all play in com.yandex.tv.live, whose activities require
          this permission (protection level normal, so it is granted at install). Ignored on other TVs. -->
     <uses-permission android:name="yandex.tv.permission.ACCESS_TV_SOURCE" />
+    <!-- ink_home: read the Today add-on's last agenda for the Calendar and Tasks previews, and ask it to refresh.
+         A signature permission: granted only when Today is signed with the same key as this build. -->
+    <uses-permission android:name="io.github.mrfritzdjango.morningboard.permission.AGENDA" />
 
     <!-- Android 11+ package visibility: lets the launcher list the TV apps it shows as tiles, and the
          apps that declare a module card (docs/specs/card.md). -->
     <queries>
+        <!-- ink_home: the Today add-on's agenda provider and refresh receiver. -->
+        <package android:name="io.github.mrfritzdjango.morningboard" />
         <!-- The standard settings handlers, so package visibility doesn't hide them and send the pills to a vendor fallback by mistake. -->
         <intent>
             <action android:name="android.settings.SETTINGS" />

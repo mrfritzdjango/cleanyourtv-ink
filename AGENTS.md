@@ -74,7 +74,7 @@ share their TV's list afterwards, follow [`docs/workflows/tv-list.md`](docs/work
 | `addons/` | Optional module-card apps, each its own Gradle project, never built into the launcher. |
 | `tools/` | The ADB client (`tv.py`) and the scripts, listed in the README's Tools table. Shell scripts have PowerShell twins. Each script's usage is in its first lines, and the larger ones have a guide beside them (`tools/*.md`): read it before running the script. |
 | `tests/` | Python `unittest` suite: list format, README tables, press counts, themes, add-ons, the Home guard and the tools against fake TVs. |
-| `.github/workflows/` | `ci.yml` (tests, launcher build, APK size gate), `addons.yml`, `maintainer-bot.yml`. |
+| `.github/workflows/` | `ci.yml` (tests, launcher build, APK size gate), `addons.yml` (also builds and tests Today when `ink/` changes). Upstream's PR review bot workflow is not part of this fork. |
 | `.github/maintainer/MAINTAINER.md` | The review policy the maintainer and the PR bot apply. |
 | `.github/pull_request_template.md` | The PR checklist. Fill it in. |
 
@@ -117,7 +117,7 @@ use it and ends with the check to run.
 |---|---|
 | Tests, as CI runs them | `python3 -m unittest discover -s tests -v` after `python3 -m venv tools/venv` and `tools/venv/bin/pip install -r tools/requirements.txt`. On `main`, CI sets `CLEANYOURTV_STRICT=1`, and its "README tables" job checks that the TV tables and counts are what `tools/gen_tables.py` writes. |
 | Launcher, if you touched `launcher/` | JDK 17, Android SDK platform 34, build-tools 34.0.0. In `launcher/`: `./gradlew --no-daemon testReleaseUnitTest lintRelease assembleRelease`. Lint must stay at zero errors. |
-| APK size gate | `launcher/app/build/outputs/apk/release/app-release.apk` must be under 524,288 B (512 KB). Linux: `stat -c %s`, macOS: `stat -f %z`. |
+| APK size gate | `launcher/app/build/outputs/apk/release/app-release.apk` must be under 573,440 B (560 KB) in this fork (upstream's gate is 512 KB; the e-ink Home needs a little more). Linux: `stat -c %s`, macOS: `stat -f %z`. |
 | README rows | A new list adds only its folder, with a `tv.json`: the TV tables, the brand line and the counts are generated after merging, so leave them alone. A theme has its row in `themes/README.md`; an add-on in `addons/README.md`. |
 | One topic per PR | A TV list never rides inside a launcher feature PR. A device's list plus small fixes for that same device can be one PR. |
 | Tested on | Say which TV, Android version and firmware you tested on, in the PR template's "Tested on" line. |

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The TV banner: an e-ink list on paper, the first line selected. Drawn for this add-on. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#FFE6E5DF" android:pathData="M0,0h320v180h-320z" />
+    <path android:fillColor="#FF1C1C1A" android:pathData="M40,40h150v28h-150z" />
+    <path android:fillColor="#FFE6E5DF" android:pathData="M52,50h96v8h-96z" />
+    <path android:fillColor="#FF1C1C1A" android:pathData="M52,86h80v8h-80zM52,112h110v8h-110zM52,138h64v8h-64z" />
+    <path android:fillColor="#FF1C1C1A" android:pathData="M226,112h12v34h-12zM246,112h26v8h-26zM246,138h26v8h-26zM260,120h12v18h-12z" />
+</vector>

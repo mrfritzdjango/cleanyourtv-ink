@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <!-- Your own Apps Script, for today's events and tasks, and to mark a task done. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The 07:00 board: an alarm-clock alarm, set again after a reboot, that wakes the screen. -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Reading the last agenda and asking for a refresh: only apps signed with the same key (your launcher build). -->
+    <permission
+        android:name="io.github.mrfritzdjango.morningboard.permission.AGENDA"
+        android:label="@string/agenda_permission"
+        android:protectionLevel="signature" />
+
+    <application
+        android:allowBackup="false"
+        android:banner="@drawable/banner"
+        android:icon="@drawable/icon"
+        android:label="@string/app_name"
+        android:supportsRtl="false"
+        android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
+
+        <activity
+            android:name=".BoardActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <!-- Clean Your TV module card (docs/specs/card.md): the tile shows as "Today" once the owner says Show. -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="com.gathin.tvhome.category.DOCK_CARD" />
+            </intent-filter>
+            <meta-data android:name="com.gathin.tvhome.card" android:resource="@xml/module_card" />
+        </activity>
+
+        <!-- The 07:00 alarm's way in: not exported, so no other app can open the board and wake the screen. -->
+        <activity-alias
+            android:name=".MorningAlarm"
+            android:exported="false"
+            android:targetActivity=".BoardActivity" />
+
+        <!-- The e-ink animal screensaver. Google TV: settings put secure screensaver_components
+             io.github.mrfritzdjango.morningboard/.AnimalDream (the README has the commands). -->
+        <service
+            android:name=".AnimalDream"
+            android:exported="true"
+            android:label="@string/dream_name"
+            android:permission="android.permission.BIND_DREAM_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.dreams.DreamService" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
+
+        <!-- The screensaver as a page, to try it at once: am start -n io.github.mrfritzdjango.morningboard/.SaverActivity -->
+        <activity
+            android:name=".SaverActivity"
+            android:exported="true"
+            android:screenOrientation="landscape" />
+
+        <!-- The launcher's e-ink Home: its Calendar and Tasks previews, and a refresh when Home comes up. -->
+        <provider
+            android:name=".AgendaProvider"
+            android:authorities="io.github.mrfritzdjango.morningboard.agenda"
+            android:exported="true"
+            android:readPermission="io.github.mrfritzdjango.morningboard.permission.AGENDA" />
+
+        <receiver
+            android:name=".RefreshReceiver"
+            android:exported="true"
+            android:permission="io.github.mrfritzdjango.morningboard.permission.AGENDA">
+            <intent-filter>
+                <action android:name="io.github.mrfritzdjango.morningboard.REFRESH" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Home's hold-OK on the Spotify row: pause or play. Same signature permission as the refresh. -->
+        <receiver
+            android:name=".PlayPauseReceiver"
+            android:exported="true"
+            android:permission="io.github.mrfritzdjango.morningboard.permission.AGENDA">
+            <intent-filter>
+                <action android:name="io.github.mrfritzdjango.morningboard.PLAYPAUSE" />
+            </intent-filter>
+        </receiver>
+
+        <!-- What Spotify is playing, for Home and the screensaver. A notification listener only because Android lets
+             no other kind of app follow media sessions; it reads no notifications. Off until allowed once over ADB:
+             cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying -->
+        <service
+            android:name=".NowPlaying"
+            android:exported="true"
+            android:label="@string/now_playing_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

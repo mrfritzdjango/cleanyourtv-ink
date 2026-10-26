@@ -1,0 +1,36 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+body{margin:0;background:#bbb;font:14px sans-serif}
+.g{display:grid;gap:6px;padding:6px}
+.c{background:#E6E5DF;position:relative}
+.c canvas{display:block;width:100%}
+.c span{position:absolute;left:6px;top:4px;color:#900;font-weight:bold}
+</style>
+<div id="g" class="g"></div>
+<script src="engine.js"></script>
+<script src="motions/lib.js"></script>
+<script>
+// strip.html?id=..&mode=pass|outing&dir=1&n=12&cols=4&night=0&files=ref,land  - a grid of moments of one show
+const q = new URLSearchParams(location.search);
+const files = (q.get('files') || 'ref').split(',');
+const load = src => new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = bad; document.body.appendChild(s); });
+(async () => {
+  for (const f of files) await load('motions/' + f + '.js');
+  const list = await (await fetch('../app/src/main/assets/animals.json')).json();
+  Ink.loadAnimals(list);
+  const id = q.get('id'), mode = q.get('mode') || 'pass', dir = +(q.get('dir') || 1), n = +(q.get('n') || 12), cols = +(q.get('cols') || 4);
+  const g = document.getElementById('g'); g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  const d = Ink.duration(id, mode);
+  const times = q.get('t') ? q.get('t').split(',').map(Number) : Array.from({ length: n }, (_, i) => +(i * d / (n - 1)).toFixed(3));
+  for (const t of times) {
+    const cell = document.createElement('div'); cell.className = 'c';
+    const c = document.createElement('canvas'); cell.appendChild(c);
+    const lab = document.createElement('span'); lab.textContent = t.toFixed(2) + 's'; cell.appendChild(lab);
+    g.appendChild(cell);
+    const p = new Ink.Player(c, { font: 'Helvetica, Arial, sans-serif' }); p.night = q.get('night') === '1';
+    try { const P = p.render(id, mode, t, dir); if (P && P.v && P.v.b) lab.textContent += ' ' + P.v.b; } catch (e) { lab.textContent = e.message; console.error(e); }
+  }
+  document.title = 'done';
+})();
+</script>

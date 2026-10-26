@@ -4,10 +4,10 @@ name: Add-ons
 # slow the launcher's build, and the launcher's size gate never sees add-on code.
 on:
   pull_request:
-    paths: ["addons/**"]
+    paths: ["addons/**", "ink/**"]
   push:
     branches: [main]
-    paths: ["addons/**"]
+    paths: ["addons/**", "ink/**"]
 
 permissions:
   contents: read
@@ -31,12 +31,17 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
+          # a new branch (or the repo's first push) has no "before": compare with the commit below this one
+          git cat-file -e "$BASE^{commit}" 2>/dev/null || BASE=HEAD~1
           changed=$(git diff --name-only "$BASE" HEAD -- addons | awk -F/ 'NF>2 {print $2}' | sort -u)
+          # ink/ (the animal player) is compiled into Today, whose unit tests check it against the real assets
+          git diff --quiet "$BASE" HEAD -- ink || changed=$(printf '%s\nmorning-board\n' "$changed" | sort -u | sed '/^$/d')
           [ -z "$changed" ] && { echo "no add-on changed"; exit 0; }
           for a in $changed; do
             [ -d "addons/$a" ] || continue
             [ -f "addons/$a/gradlew" ] || { echo "addons/$a has no gradlew"; exit 1; }
             echo "::group::addons/$a"
-            (cd "addons/$a" && chmod +x gradlew && ./gradlew --no-daemon assembleRelease)
+            tests=""; [ "$a" = morning-board ] && tests=testReleaseUnitTest
+            (cd "addons/$a" && chmod +x gradlew && ./gradlew --no-daemon $tests assembleRelease)
             echo "::endgroup::"
           done

@@ -56,7 +56,8 @@ final class SaverView extends FrameLayout {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final Runnable minute = () -> update(true);
     private final Runnable outing = this::goOut;
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    /** Made each time the view goes on screen and shut down when it leaves: the same view can come back, and a shut pool refuses work. */
+    private ExecutorService io;
     /** Read off the main thread when the view is attached (animals.json is large); empty until then. */
     private List<Animals.Animal> animals = Collections.emptyList();
     private Shows shows;
@@ -146,13 +147,17 @@ final class SaverView extends FrameLayout {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        io = Executors.newSingleThreadExecutor();
         update(true);   // the clock at once; the animals follow
         Context context = getContext();
         context.getContentResolver().registerContentObserver(NowPlaying.URI, false, songChanged);
-        io.execute(() -> {
+        ExecutorService loading = io;
+        loading.execute(() -> {
             List<Animals.Animal> list = Animals.load(context);
             Shows index = Shows.open(context.getAssets());
             main.post(() -> {
+                // closed while the animals loaded (any key closes SaverActivity): nothing more to draw
+                if (io != loading) return;
                 animals = list;
                 shows = index;
                 update(false);
@@ -167,6 +172,8 @@ final class SaverView extends FrameLayout {
         getContext().getContentResolver().unregisterContentObserver(songChanged);
         main.removeCallbacksAndMessages(null);
         io.shutdownNow();
+        io = null;
+        shown = -2;   // back on screen, the animal is drawn again
     }
 
     /** Shows this animal now and sends it out after two seconds (SaverActivity --es animal <id>, to try a show). */
@@ -304,6 +311,7 @@ final class SaverView extends FrameLayout {
         if (a == null) return;
         int inkNow = ink, paperNow = paper, width = getResources().getDisplayMetrics().widthPixels;
         Shows index = shows;
+        if (io == null) return;   // off screen: it is drawn when the view comes back
         io.execute(() -> {
             float k = width / DESIGN_WIDTH;
             Shows.Show s = index != null ? index.load(a.id, false) : null;

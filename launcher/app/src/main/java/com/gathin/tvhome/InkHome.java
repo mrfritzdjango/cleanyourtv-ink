@@ -1202,7 +1202,8 @@ final class InkHome {
 
     /**
      * The song, larger, laid out like the block: the cover in shades of ink with the kingfisher on it, and beside it NOW
-     * PLAYING over the title, artist and album; then the progress line, the times and the three marks.
+     * PLAYING over the title, the artist, the playlist it plays from (or its album) and the three marks; then the progress
+     * line, with the times at its ends and what a short OK does between them.
      */
     private View songPreview(String app) {
         LinearLayout col = column();
@@ -1231,8 +1232,17 @@ final class InkHome {
         title.setMaxLines(2);   // a long title takes two lines, then …
         words.addView(title, wrap(12));
         words.addView(text(30, false, song.artist, ink), wrap(10));
-        // a single's album has the song's name: said once is enough
-        if (!song.album.isEmpty() && !song.album.equals(song.title)) words.addView(text(24, false, song.album, muted), wrap(8));
+        // the playlist, or the album when Spotify names none; a single's album has the song's name: said once is enough
+        boolean list = song.fromPlaylist();
+        if (list || !song.album.isEmpty() && !song.album.equals(song.title)) {
+            LinearLayout from = row();
+            from.addView(new SourceMark(list), new LinearLayout.LayoutParams(px(24), px(24)));
+            LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+            fp.leftMargin = px(10);
+            from.addView(text(24, false, list ? song.playlist : song.album, muted), fp);
+            add(words, from, 8);
+        }
+        words.addView(transport(), wrap(20));
         LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         wp.leftMargin = px(30);
         row.addView(words, wp);
@@ -1240,34 +1250,37 @@ final class InkHome {
         if (song.duration > 0) {
             progress = new ProgressLine();
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(5));
-            lp.topMargin = px(26);
+            lp.topMargin = px(28);
             col.addView(progress, lp);
-            LinearLayout times = row();
-            elapsed = text(24, false, "", muted);
-            times.addView(elapsed, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            times.addView(text(24, false, Playing.time(song.duration), muted), wrap(0));
-            add(col, times, 10);
-            onTick();
         }
-        add(col, transport(app), 20);
+        LinearLayout times = row();
+        TextView open = text(24, false, "OK opens " + app, muted);
+        open.setGravity(Gravity.CENTER);
+        if (progress != null) {
+            elapsed = text(24, false, "", muted);
+            times.addView(elapsed, wrap(0));
+            times.addView(open, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            times.addView(text(24, false, Playing.time(song.duration), muted), wrap(0));
+            onTick();
+        } else {
+            times.addView(open, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        add(col, times, 10);
         return col;
     }
 
-    /** The remote's ring as three marks, Left · hold OK · Right, each with its key under it, then what a short OK does. */
-    private View transport(String app) {
+    /** The remote's ring as three marks, Left · hold OK · Right, each with its key under it. */
+    private View transport() {
         LinearLayout row = row();
         row.setGravity(Gravity.TOP);
-        previousMark = mark(row, "◀");
-        playMark = mark(row, "hold OK");
-        nextMark = mark(row, "▶");
-        TextView open = text(24, false, "OK opens " + app, muted);
-        open.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        row.addView(open, new LinearLayout.LayoutParams(0, px(56), 1f));
+        previousMark = mark(row, "◀", 32);
+        playMark = mark(row, "hold OK", 32);
+        nextMark = mark(row, "▶", 0);
         marks();
         return row;
     }
 
-    private Mark mark(LinearLayout row, String key) {
+    private Mark mark(LinearLayout row, String key, float gap) {
         LinearLayout col = new LinearLayout(activity);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -1275,7 +1288,7 @@ final class InkHome {
         col.addView(m, new LinearLayout.LayoutParams(px(56), px(56)));
         col.addView(text(24, false, key, muted), wrap(4));
         LinearLayout.LayoutParams lp = wrap(0);
-        lp.rightMargin = px(24);
+        lp.rightMargin = px(gap);
         row.addView(col, lp);
         return m;
     }
@@ -1524,6 +1537,39 @@ final class InkHome {
             canvas.drawRect(0, h / 2 - px(1), getWidth(), h / 2 + px(1), paint);
             paint.setColor(ink);
             canvas.drawRect(0, 0, getWidth() * done, h, paint);
+        }
+    }
+
+    /** Before the playlist or the album under the artist: three lines and a note, or a record. */
+    private final class SourceMark extends View {
+        private final boolean playlist;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+        SourceMark(boolean playlist) {
+            super(activity);
+            this.playlist = playlist;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            float u = getWidth() / 24f;
+            paint.setColor(muted);
+            paint.setStrokeWidth(2 * u);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStyle(Paint.Style.STROKE);
+            if (playlist) {
+                canvas.drawLine(3 * u, 6 * u, 15 * u, 6 * u, paint);
+                canvas.drawLine(3 * u, 11 * u, 15 * u, 11 * u, paint);
+                canvas.drawLine(3 * u, 16 * u, 10 * u, 16 * u, paint);
+                canvas.drawLine(18 * u, 17 * u, 18 * u, 8 * u, paint);
+                canvas.drawLine(18 * u, 8 * u, 22 * u, 7 * u, paint);
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawCircle(16 * u, 17 * u, 2.2f * u, paint);
+            } else {
+                canvas.drawCircle(12 * u, 12 * u, 9 * u, paint);
+                paint.setStyle(Paint.Style.FILL);
+                canvas.drawCircle(12 * u, 12 * u, 2.5f * u, paint);
+            }
         }
     }
 

@@ -8,7 +8,7 @@ import android.database.Cursor;
  */
 public final class Playing {
     public static final String[] COLUMNS = {"title", "artist", "album", "pkg", "playing", "position", "positionAt", "speed",
-            "duration", "pausedAt", "cover", "skips"};
+            "duration", "pausedAt", "cover", "skips", "playlist"};
     public static final long PAUSED_SHOWN_MS = 10 * 60_000L;
     /**
      * The cover's side in samples: one grey level per sample, 0 black to 255 white. A little over one a pixel on Home's
@@ -37,9 +37,11 @@ public final class Playing {
     public final byte[] cover;
     /** What the app lets Home do now: SKIP_PREVIOUS, SKIP_NEXT, both, or neither (an ad). */
     public final int skips;
+    /** The playlist it plays from (the session's queue title); "" when the app does not say. */
+    public final String playlist;
 
     public Playing(String title, String artist, String album, String pkg, boolean playing, long position, long positionAt,
-                   float speed, long duration, long pausedAt, byte[] cover, int skips) {
+                   float speed, long duration, long pausedAt, byte[] cover, int skips, String playlist) {
         this.title = title == null ? "" : title;
         this.artist = artist == null ? "" : artist;
         this.album = album == null ? "" : album;
@@ -52,18 +54,24 @@ public final class Playing {
         this.pausedAt = pausedAt;
         this.cover = cover;
         this.skips = skips;
+        this.playlist = playlist == null ? "" : playlist.trim();
     }
 
-    /** The provider's row, or null when nothing is playing. An older Today has no skips: it cannot skip. */
+    /** The provider's row, or null when nothing is playing. An older Today has no skips (it cannot skip) and no playlist. */
     public static Playing from(Cursor c) {
         if (c == null || !c.moveToFirst()) return null;
         return new Playing(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getInt(4) != 0, c.getLong(5),
                 c.getLong(6), c.getFloat(7), c.getLong(8), c.getLong(9), c.isNull(10) ? null : c.getBlob(10),
-                c.getColumnCount() > 11 ? c.getInt(11) : 0);
+                c.getColumnCount() > 11 ? c.getInt(11) : 0, c.getColumnCount() > 12 ? c.getString(12) : null);
     }
 
     public Object[] row() {
-        return new Object[] {title, artist, album, pkg, playing ? 1 : 0, position, positionAt, speed, duration, pausedAt, cover, skips};
+        return new Object[] {title, artist, album, pkg, playing ? 1 : 0, position, positionAt, speed, duration, pausedAt, cover, skips, playlist};
+    }
+
+    /** Under the artist Home names the playlist; an album, or a queue named like the album, says the album instead. */
+    public boolean fromPlaylist() {
+        return !playlist.isEmpty() && !playlist.equalsIgnoreCase(album);
     }
 
     /** The app lets Home skip that way now: SKIP_PREVIOUS or SKIP_NEXT. */

@@ -59,6 +59,11 @@ public final class NowPlaying extends NotificationListenerService {
         }
 
         @Override
+        public void onQueueTitleChanged(CharSequence title) {
+            publish();
+        }
+
+        @Override
         public void onSessionDestroyed() {
             follow(active());
         }
@@ -233,7 +238,7 @@ public final class NowPlaying extends NotificationListenerService {
                     s == null ? SystemClock.elapsedRealtime() : s.getLastPositionUpdateTime(),
                     s == null ? 1f : s.getPlaybackSpeed(),
                     Math.max(0, m.getLong(MediaMetadata.METADATA_KEY_DURATION)),
-                    pausedAt, cover, skips(s));
+                    pausedAt, cover, skips(s), c.getQueueTitle() == null ? null : c.getQueueTitle().toString());
         }
         current = p;
         getContentResolver().notifyChange(URI, null);

@@ -11,7 +11,7 @@ import org.junit.Test;
 public class PlayingTest {
     private static Playing song(boolean playing, long position, long at, long duration, long pausedAt) {
         return new Playing("Holocene", "Bon Iver", "Bon Iver, Bon Iver", "com.spotify.tv.android", playing, position, at, 1f,
-                duration, pausedAt, null, Playing.SKIP_PREVIOUS | Playing.SKIP_NEXT);
+                duration, pausedAt, null, Playing.SKIP_PREVIOUS | Playing.SKIP_NEXT, "");
     }
 
     @Test
@@ -33,17 +33,29 @@ public class PlayingTest {
         assertTrue(song(false, 0, 0, 0, paused).shownAt(paused + Playing.PAUSED_SHOWN_MS - 1));
         assertFalse(song(false, 0, 0, 0, paused).shownAt(paused + Playing.PAUSED_SHOWN_MS));
         assertTrue(song(true, 0, 0, 0, 0).shownAt(Long.MAX_VALUE));
-        assertFalse(new Playing("", "", "", "", true, 0, 0, 1f, 0, 0, null, 0).shownAt(0));
+        assertFalse(new Playing("", "", "", "", true, 0, 0, 1f, 0, 0, null, 0, "").shownAt(0));
     }
 
     @Test
     public void skipsAreBits() {
-        Playing ad = new Playing("Advertisement", "Spotify", "", "com.spotify.tv.android", true, 0, 0, 1f, 30_000, 0, null, 0);
+        Playing ad = new Playing("Advertisement", "Spotify", "", "com.spotify.tv.android", true, 0, 0, 1f, 30_000, 0, null, 0, "");
         assertFalse(ad.canSkip(Playing.SKIP_PREVIOUS));
         assertFalse(ad.canSkip(Playing.SKIP_NEXT));
-        Playing first = new Playing("Holocene", "Bon Iver", "", "com.spotify.tv.android", true, 0, 0, 1f, 0, 0, null, Playing.SKIP_NEXT);
+        Playing first = new Playing("Holocene", "Bon Iver", "", "com.spotify.tv.android", true, 0, 0, 1f, 0, 0, null, Playing.SKIP_NEXT, "");
         assertFalse(first.canSkip(Playing.SKIP_PREVIOUS));
         assertTrue(first.canSkip(Playing.SKIP_NEXT));
+    }
+
+    @Test
+    public void thePlaylistComesBeforeTheAlbum() {
+        Playing list = new Playing("Holocene", "Bon Iver", "Bon Iver, Bon Iver", "com.spotify.tv.android", true, 0, 0, 1f, 0, 0,
+                null, 0, " Morning Coffee ");
+        assertTrue(list.fromPlaylist());
+        assertEquals("Morning Coffee", list.playlist);
+        Playing album = new Playing("Holocene", "Bon Iver", "Bon Iver, Bon Iver", "com.spotify.tv.android", true, 0, 0, 1f, 0, 0,
+                null, 0, "Bon Iver, Bon Iver");
+        assertFalse(album.fromPlaylist());   // the album playing: its queue is named after it
+        assertFalse(song(true, 0, 0, 0, 0).fromPlaylist());
     }
 
     @Test

@@ -17,6 +17,7 @@ public final class CoverView extends View {
     private static final int SHADES = 16;
 
     private final Paint smooth = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final Paint tilePaint = new Paint();
     private final Rect frame = new Rect();
     private int tile;
     /** The picture at the size it came in, one pixel per grey level, or null for an empty square. */
@@ -64,9 +65,11 @@ public final class CoverView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.drawColor(tile);
-        if (picture == null) return;
+        // its own square only: the song's block doesn't clip it (the kingfisher's notes reach past the cover)
         frame.set(0, 0, getWidth(), getHeight());
+        tilePaint.setColor(tile);
+        canvas.drawRect(frame, tilePaint);
+        if (picture == null) return;
         canvas.drawBitmap(picture, null, frame, smooth);
     }
 }

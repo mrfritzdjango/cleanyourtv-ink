@@ -4,6 +4,7 @@ import io.github.mrfritzdjango.ink.Animals;
 import io.github.mrfritzdjango.ink.Playing;
 import io.github.mrfritzdjango.ink.ShowView;
 import io.github.mrfritzdjango.ink.Shows;
+import io.github.mrfritzdjango.ink.SongBird;
 import io.github.mrfritzdjango.ink.SongBlock;
 
 import android.content.Context;
@@ -140,7 +141,8 @@ final class SaverView extends FrameLayout {
         song = new SongBlock(context, regular, bold, scale);
         LayoutParams sp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
         sp.rightMargin = px(240);
-        sp.topMargin = px(116);   // where Home has it: level with the first row of its full list
+        // the cover where Home has it, level with the first row of its full list; the kingfisher stands above it
+        sp.topMargin = px(116) - song.overhang();
         stage.addView(song, sp);
     }
 
@@ -160,6 +162,7 @@ final class SaverView extends FrameLayout {
                 if (io != loading) return;
                 animals = list;
                 shows = index;
+                song.perch(SongBird.find(list));
                 update(false);
                 if (picked != null) pick(picked);
             });

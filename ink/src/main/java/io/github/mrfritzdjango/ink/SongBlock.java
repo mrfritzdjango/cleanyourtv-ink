@@ -1,29 +1,51 @@
 package io.github.mrfritzdjango.ink;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.TimeInterpolator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Typeface;
+import android.text.Layout;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
  * The now-playing block at the top right of the e-ink Home and the screensaver: the cover in shades of ink on the left, and
- * to its right NOW PLAYING (PAUSED once paused) after three bars that move while it plays, the song and the artist. On Home, with a streaming app's row selected,
+ * to its right NOW PLAYING (PAUSED once paused), the song and the artist; the menagerie's kingfisher perches on the cover and
+ * sings while it plays. On Home, with a streaming app's row selected,
  * it shows that app's last show instead: a 16:9 frame, LAST WATCHED, the title and the episode with its app. No border; gone when nothing
- * is shown.
+ * is shown. The block stands {@link #overhang()} taller than the cover, above it, for the bird and its notes. It keeps to the
+ * right-hand column ({@link #WIDTH_PX}): a song or artist too long for it rests at its start, glides slowly to its end, rests
+ * there and slides back, again and again, rather than ending in … or pushing the block to the left.
  */
 public final class SongBlock extends LinearLayout {
     /** Design pixels (1920 wide): the cover's side, the text sizes. */
-    private static final float COVER_PX = 76;
+    private static final float COVER_PX = 88;
     /** The video frame: as tall as the cover, in its own 16:9. */
     private static final float FRAME_PX = COVER_PX * Watched.FRAME_W / Watched.FRAME_H;
+    /** The block at its widest, cover and words: the right-hand of Home's three columns between the list and the clock. */
+    private static final float WIDTH_PX = 480;
+    /** Between the cover and the words. */
+    private static final float GAP_PX = 20;
+    /** A long line rests this long at its start, glides this many design pixels a second, rests at its end, slides back. */
+    private static final long REST_MS = 4000;
+    private static final float GLIDE_PX_S = 40;
+    private static final long END_REST_MS = 2500;
+    private static final long BACK_MS = 700;
 
     private final float scale;
+    /** The cover with the bird standing over it. */
+    private final FrameLayout perch;
     private final CoverView cover;
-    private final PlayingBars bars;
+    private final SongBird bird;
     private final TextView label;
     private final TextView song;
     private final TextView artist;
@@ -32,35 +54,41 @@ public final class SongBlock extends LinearLayout {
     /** The cover is the video's 16:9 frame. */
     private boolean wide;
     private int shownInk;
+    private final TextView[] lines;
+    private ValueAnimator gliding;
+    /** The glide's next step, waiting out a rest. */
+    private Runnable pending;
 
     public SongBlock(Context context, Typeface regular, Typeface bold, float scale) {
         super(context);
         this.scale = scale;
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
+        // the bird and its notes stand in the padding above the cover, the notes past its right edge
+        setPadding(0, overhang(), 0, 0);
+        setClipToPadding(false);
+        setClipChildren(false);
+        perch = new FrameLayout(context);
+        perch.setClipChildren(false);
         cover = new CoverView(context);
-        addView(cover, new LayoutParams(px(COVER_PX), px(COVER_PX)));
+        perch.addView(cover, new FrameLayout.LayoutParams(px(COVER_PX), px(COVER_PX)));
+        bird = new SongBird(context, scale);
+        perch.addView(bird, new FrameLayout.LayoutParams(px(COVER_PX), px(COVER_PX)));
+        addView(perch, new LayoutParams(px(COVER_PX), px(COVER_PX)));
         LinearLayout words = new LinearLayout(context);
         words.setOrientation(VERTICAL);
-        label = text(15, bold);
+        label = text(16, bold);
         label.setLetterSpacing(0.12f);
-        // the bars stand on the label's line, as tall as its capitals and a bit, 10 px before it
-        LinearLayout line = new LinearLayout(context);
-        line.setOrientation(HORIZONTAL);
-        line.setGravity(Gravity.CENTER_VERTICAL);
-        bars = new PlayingBars(context);
-        LayoutParams bp = new LayoutParams(px(3 * PlayingBars.BAR_PX + 2 * PlayingBars.GAP_PX), px(16));
-        bp.rightMargin = px(10);
-        line.addView(bars, bp);
-        line.addView(label);
-        song = text(26, bold);
-        artist = text(21, regular);
-        words.addView(line, below(0));
-        words.addView(song, below(7));
-        words.addView(artist, below(5));
+        song = text(30, bold);
+        artist = text(24, regular);
+        words.addView(label, below(0));
+        words.addView(song, below(8));
+        words.addView(artist, below(6));
         LayoutParams wp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        wp.leftMargin = px(18);
+        wp.leftMargin = px(GAP_PX);
         addView(words, wp);
+        lines = new TextView[] {label, song, artist};
+        fit(COVER_PX);
         setVisibility(GONE);
     }
 
@@ -70,22 +98,22 @@ public final class SongBlock extends LinearLayout {
             setVisibility(GONE);
             shown = null;
             shownWatched = null;
+            stopGlide();
             return;
         }
-        shape(false);
+        boolean moved = shape(false) | getVisibility() != VISIBLE;
         shownWatched = null;
-        label.setText(p.playing ? "NOW PLAYING" : "PAUSED");
+        moved |= words(p.playing ? "NOW PLAYING" : "PAUSED", p.title, p.artist);
         label.setTextColor(muted);
-        bars.set(p.playing, ink);
-        bars.setVisibility(VISIBLE);
-        song.setText(p.title);
+        bird.set(p.playing, ink, paper);
+        bird.setVisibility(VISIBLE);
         song.setTextColor(ink);
-        artist.setText(p.artist);
         artist.setTextColor(muted);
         if (shown == null || shown.cover != p.cover || shownInk != ink) cover.set(p.cover, ink, paper, night);
         shown = p;
         shownInk = ink;
         setVisibility(VISIBLE);
+        if (moved) startGlide();
     }
 
     /** Shows the last show watched, or hides the block when w is null. */
@@ -94,14 +122,12 @@ public final class SongBlock extends LinearLayout {
             show((Playing) null, ink, muted, paper, night);
             return;
         }
-        shape(true);
-        label.setText("LAST WATCHED");
+        boolean moved = shape(true) | getVisibility() != VISIBLE;
+        moved |= words("LAST WATCHED", w.title, w.line());
         label.setTextColor(muted);
-        bars.set(false, ink);
-        bars.setVisibility(GONE);
-        song.setText(w.title);
+        bird.set(false, ink, paper);
+        bird.setVisibility(GONE);
         song.setTextColor(ink);
-        artist.setText(w.line());
         artist.setTextColor(muted);
         if (shownWatched == null || shownWatched.frame != w.frame || shownInk != ink) {
             cover.set(w.frame, Watched.FRAME_W, Watched.FRAME_H, ink, paper, night);
@@ -110,12 +136,124 @@ public final class SongBlock extends LinearLayout {
         shown = null;
         shownInk = ink;
         setVisibility(VISIBLE);
+        if (moved) startGlide();
     }
 
-    private void shape(boolean frame) {
-        if (frame == wide) return;
+    /** The cover square or the video's frame; true when it changed. */
+    private boolean shape(boolean frame) {
+        if (frame == wide) return false;
         wide = frame;
-        cover.setLayoutParams(new LayoutParams(px(frame ? FRAME_PX : COVER_PX), px(COVER_PX)));
+        float side = frame ? FRAME_PX : COVER_PX;
+        cover.setLayoutParams(new FrameLayout.LayoutParams(px(side), px(COVER_PX)));
+        perch.setLayoutParams(new LayoutParams(px(side), px(COVER_PX)));
+        fit(side);
+        return true;
+    }
+
+    /** The words take what the cover leaves of the block's width. */
+    private void fit(float side) {
+        for (TextView t : lines) t.setMaxWidth(px(WIDTH_PX - side - GAP_PX));
+    }
+
+    /**
+     * Sets the three lines, each only when it differs (setting a line again would put it back at its start); true when one
+     * changed.
+     */
+    private boolean words(String head, String title, String by) {
+        boolean changed = false;
+        String[] now = {head, title, by};
+        for (int i = 0; i < lines.length; i++) {
+            if (TextUtils.equals(lines[i].getText(), now[i])) continue;
+            lines[i].setText(now[i]);
+            changed = true;
+        }
+        return changed;
+    }
+
+    // ---- The long lines' glide: one position for all three, each line stopping at its own end
+
+    /** Every line back at its start, and the glide again after the rest; only while the block is on screen. */
+    private void startGlide() {
+        stopGlide();
+        if (getVisibility() == VISIBLE && getWindowVisibility() == VISIBLE) later(this::glide, REST_MS);
+    }
+
+    private void stopGlide() {
+        ValueAnimator a = gliding;
+        gliding = null;   // first, so that its end, called by cancel, goes no further
+        if (a != null) a.cancel();
+        if (pending != null) removeCallbacks(pending);
+        pending = null;
+        for (TextView t : lines) t.setScrollX(0);
+    }
+
+    /** Out to the furthest end at an even pace, a rest there, back quickly, a rest at the start; nothing when all fit. */
+    private void glide() {
+        pending = null;
+        int far = 0;
+        for (TextView t : lines) far = Math.max(far, overflow(t));
+        if (far == 0) return;
+        int end = far;
+        slide(0, end, Math.round(end * 1000 / (GLIDE_PX_S * scale)), new LinearInterpolator(),
+                () -> later(() -> slide(end, 0, BACK_MS, new DecelerateInterpolator(),
+                        () -> later(this::glide, REST_MS)), END_REST_MS));
+    }
+
+    private void later(Runnable r, long ms) {
+        pending = r;
+        postDelayed(r, ms);
+    }
+
+    private void slide(int from, int to, long ms, TimeInterpolator how, Runnable then) {
+        pending = null;
+        ValueAnimator a = ValueAnimator.ofInt(from, to);
+        a.setDuration(ms);
+        a.setInterpolator(how);
+        a.addUpdateListener(v -> {
+            int at = (int) v.getAnimatedValue();
+            for (TextView t : lines) t.setScrollX(Math.min(at, overflow(t)));
+        });
+        a.addListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animator) {
+                if (gliding != a) return;   // stopped
+                gliding = null;
+                then.run();
+            }
+        });
+        gliding = a;
+        a.start();
+    }
+
+    /** How far a line runs past its width, in pixels; 0 when it fits. */
+    private static int overflow(TextView t) {
+        Layout l = t.getLayout();
+        if (l == null) return 0;
+        int room = t.getWidth() - t.getTotalPaddingLeft() - t.getTotalPaddingRight();
+        return Math.max(0, (int) Math.ceil(l.getLineWidth(0)) - room);
+    }
+
+    /** Home under another app, or the screensaver gone: nothing glides where no one sees it. */
+    @Override
+    protected void onWindowVisibilityChanged(int visibility) {
+        super.onWindowVisibilityChanged(visibility);
+        startGlide();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        stopGlide();
+        super.onDetachedFromWindow();
+    }
+
+    /** The bird to perch on the cover (the kingfisher from {@link SongBird#find}); null leaves the cover bare. */
+    public void perch(Animals.Animal kingfisher) {
+        bird.setBird(kingfisher);
+    }
+
+    /** How far the block reaches above its cover: place it this much higher to keep the cover where it was. */
+    public int overhang() {
+        return px(COVER_PX * SongBird.OVER);
     }
 
     private int px(float design) {
@@ -127,9 +265,9 @@ public final class SongBlock extends LinearLayout {
         t.setTypeface(face);
         t.setTextSize(TypedValue.COMPLEX_UNIT_PX, size * scale);
         t.setIncludeFontPadding(false);
+        // one line as long as it runs (fit() bounds the view, the glide shows the rest), no … at its end
         t.setSingleLine(true);
-        t.setEllipsize(TextUtils.TruncateAt.END);
-        t.setMaxWidth(px(520));   // a long title ends in … rather than running under the screen's edge
+        t.setEllipsize(null);
         return t;
     }
 

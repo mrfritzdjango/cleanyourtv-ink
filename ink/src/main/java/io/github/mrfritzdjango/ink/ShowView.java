@@ -162,11 +162,16 @@ public final class ShowView extends View {
      * cut layer (a frame with the animal cut out of it) erasing what falls outside the animal.
      */
     public static Drawing draw(Animals.Animal a, int[] props, float unitPx, int ink, int paper, float dotCell) {
+        return draw(a, props, unitPx, ink, paper, dotCell, 0);
+    }
+
+    /** The same, no line thinner than minLinePx screen pixels: a small animal (the song's kingfisher) keeps its outline. */
+    public static Drawing draw(Animals.Animal a, int[] props, float unitPx, int ink, int paper, float dotCell, float minLinePx) {
         float density = Math.min(1, MAX_BITMAP / (Math.max(a.width, a.height) * unitPx));
         float unit = unitPx * density;
         int w = Math.max(1, Math.round(a.width * unit)), h = Math.max(1, Math.round(a.height * unit));
         Bitmap body = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        layers(new Canvas(body), a, props, false, unit, ink, paper, dotCell * density);
+        layers(new Canvas(body), a, props, false, unit, ink, paper, dotCell * density, minLinePx / unitPx);
         RectF box = props.length > 0 ? propBounds(a, props) : null;
         if (box == null) return new Drawing(body, null, 0, 0, density);
         // Only the prop's own corner of the frame: a branch is small, the frame is most of the screen.
@@ -176,7 +181,7 @@ public final class ShowView extends View {
         Bitmap prop = Bitmap.createBitmap(right - left, bottom - top, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(prop);
         c.translate(-left, -top);
-        layers(c, a, props, true, unit, ink, paper, dotCell * density);
+        layers(c, a, props, true, unit, ink, paper, dotCell * density, minLinePx / unitPx);
         return new Drawing(body, prop, left, top, density);
     }
 
@@ -195,7 +200,7 @@ public final class ShowView extends View {
         return all;
     }
 
-    private static void layers(Canvas c, Animals.Animal a, int[] props, boolean wantProps, float unitPx, int ink, int paper, float dotCell) {
+    private static void layers(Canvas c, Animals.Animal a, int[] props, boolean wantProps, float unitPx, int ink, int paper, float dotCell, float minLine) {
         Paint under = new Paint(Paint.ANTI_ALIAS_FLAG);
         under.setColor(paper);
         Paint solid = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -231,7 +236,7 @@ public final class ShowView extends View {
             else if (l.fill == Animals.INK) c.drawPath(l.path, solid);
             else if (l.fill == Animals.PAPER) c.drawPath(l.path, paperFill);
             if (l.stroke) {
-                line.setStrokeWidth(l.width);
+                line.setStrokeWidth(Math.max(l.width, minLine));
                 c.drawPath(l.path, line);
             }
         }

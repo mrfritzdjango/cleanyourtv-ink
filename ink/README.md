@@ -14,8 +14,8 @@ the code and nothing to keep in sync.
 | `Playing` | The song Today's `NowPlaying` follows: one row of its provider, where the song is now, and when a paused one goes. |
 | `Watched` | The last show watched in a streaming app, as Today's `NowPlaying` keeps it: title, episode, app, a 16:9 frame. |
 | `CoverView` | An album cover (or a video's frame) in sixteen shades of ink, on a tile a shade off the page. |
-| `SongBlock` | The block at the top right of Home and the screensaver: the cover, NOW PLAYING after three moving bars, the song, the artist; on Home, with a streaming app's row selected, LAST WATCHED. |
-| `PlayingBars` | Those three bars: four heights each, in steps, redrawn a few times a second only while on screen; flat when paused. |
+| `SongBlock` | The block at the top right of Home and the screensaver: the cover, NOW PLAYING, the song, the artist, kept to the right-hand column (a long line glides slowly to its end and back); on Home, with a streaming app's row selected and no song, LAST WATCHED. |
+| `SongBird` | The menagerie's collared kingfisher perched on that cover: while the song plays it bows and three notes rise from its beak, in steps a few times a second, only while on screen; paused, it sits still. |
 
 The assets live only in Today; the launcher reads them through `createPackageContext`. Their tests are Today's
 (`addons/morning-board/app/src/test`), which check every drawing and every show in the real assets. The drawings

@@ -3,9 +3,9 @@ package com.gathin.tvhome;
 import io.github.mrfritzdjango.ink.Animals;
 import io.github.mrfritzdjango.ink.CoverView;
 import io.github.mrfritzdjango.ink.Playing;
-import io.github.mrfritzdjango.ink.PlayingBars;
 import io.github.mrfritzdjango.ink.ShowView;
 import io.github.mrfritzdjango.ink.Shows;
+import io.github.mrfritzdjango.ink.SongBird;
 import io.github.mrfritzdjango.ink.SongBlock;
 import io.github.mrfritzdjango.ink.Watched;
 
@@ -70,10 +70,10 @@ import java.util.concurrent.Executors;
  * The launcher's Home, an e-ink page. A text list (Calendar and Tasks from the Today add-on, then the dock
  * apps, Screensaver and Settings), the big clock, and while Calendar or Tasks is selected a preview of it in the middle
  * column, level with the first row, read from Today's provider because Home has no network. While Spotify plays, Today's NowPlaying puts
- * the song at the top right (cover in shades of ink, NOW PLAYING, song, artist), and with the Spotify row selected the
- * larger view takes its place: OK opens Spotify, OK held pauses or plays. With a streaming app's row selected (YouTube,
- * Netflix…), the top right shows that app's last show instead (LAST WATCHED: a 16:9 frame, the title, the episode and
- * the app), for a week after it was watched. Selection is an inverted ink bar; the only
+ * the song at the top right (cover in shades of ink, NOW PLAYING, song, artist) on every row and every settings page,
+ * and with the Spotify row selected the larger view takes its place: OK opens Spotify, OK held pauses or plays. With no
+ * song and a streaming app's row selected (YouTube, Netflix…), the top right shows that app's last show instead (LAST
+ * WATCHED: a 16:9 frame, the title, the episode and the app), for a week after it was watched. Selection is an inverted ink bar; the only
  * motion is the preview simply swapping, with no flash. Every 30 seconds an animal from Today crosses the whole screen in its own way
  * (its pass, played by ShowView over everything; keys still work under it), TITANE every fifth time. Night ink from
  * 19:30 to 07:00. The fonts, the animals and their shows are Today's own (read through createPackageContext), so the
@@ -362,6 +362,7 @@ final class InkHome {
         resumed = true;
         main.removeCallbacks(pass);
         main.postDelayed(pass, untilNextPass());
+        io.execute(this::readAnimals);   // the kingfisher for the song's block, without waiting for the first pass
     }
 
     void onPause() {
@@ -419,6 +420,27 @@ final class InkHome {
         return 30_000 - (now + 15_000) % 30_000;
     }
 
+    /**
+     * Today's animals, read again whenever Today changes (an updated Today brings new animals and shows, and its props are
+     * layer numbers), and the kingfisher handed to the song's block; Today's context, or null when there is no Today.
+     * The io thread's only.
+     */
+    private Context readAnimals() {
+        try {
+            Context today = activity.createPackageContext(TODAY, 0);
+            long version = activity.getPackageManager().getPackageInfo(TODAY, 0).lastUpdateTime;
+            if (animals == null || version != animalsVersion) {
+                animals = Animals.load(today);
+                animalsVersion = version;
+                Animals.Animal bird = SongBird.find(animals);
+                main.post(() -> songBlock.perch(bird));
+            }
+            return today;
+        } catch (PackageManager.NameNotFoundException e) {
+            return null;
+        }
+    }
+
     private void onPass() {
         main.removeCallbacks(pass);
         main.postDelayed(pass, untilNextPass() + 50);
@@ -426,19 +448,9 @@ final class InkHome {
         int inkNow = ink, paperNow = paper, width = activity.getResources().getDisplayMetrics().widthPixels;
         int dir = coin.nextBoolean() ? 1 : -1;
         io.execute(() -> {
-            try {
-                // Today's own files: an updated Today brings new animals and shows, and its props are layer numbers,
-                // so the drawings are read again with the shows whenever Today changes
-                Context today = activity.createPackageContext(TODAY, 0);
-                long version = activity.getPackageManager().getPackageInfo(TODAY, 0).lastUpdateTime;
-                if (animals == null || version != animalsVersion) {
-                    animals = Animals.load(today);
-                    animalsVersion = version;
-                }
-                shows = Shows.open(today.getAssets());
-            } catch (PackageManager.NameNotFoundException e) {
-                return;   // no Today: no animals
-            }
+            Context today = readAnimals();
+            if (today == null) return;   // no Today: no animals
+            shows = Shows.open(today.getAssets());
             Animals.Animal a = next();
             Shows.Show show = a == null ? null : shows.load(a.id, true);
             if (show == null) return;
@@ -685,12 +697,11 @@ final class InkHome {
         }
         row = Math.max(0, Math.min(at, rows.size() - 1));
         if (rows.get(row).kind == NOTE) row = Math.max(0, row - 1);
-        // nothing of Home's shows under a page
+        // none of Home's previews shows under a page; the song stays at the top right (showPreview)
         preview.removeAllViews();
         main.removeCallbacks(tick);
         progress = null;
         shownPreview = NONE;
-        songBlock.show((Playing) null, ink, muted, paper, night);
         render();
     }
 
@@ -945,6 +956,7 @@ final class InkHome {
         list.removeAllViews();
         if (page != P_HOME) {
             renderPage();
+            showPreview();   // the song's block, over the page too
             return;
         }
         for (int i = 0; i < items.size(); i++) {
@@ -966,29 +978,31 @@ final class InkHome {
 
     /**
      * The preview follows the selection, swapping at once: Calendar's, Tasks', or with the Spotify row the song's in
-     * place of the block at the top right, or with a streaming app's row its last show watched. Calendar and Tasks
-     * always open in the middle column, level with the first row (and so with the block), so they stay put whether a
-     * song plays or not and never stack under it.
+     * place of the block at the top right. A song playing keeps the block on every other row and on the settings pages;
+     * with nothing playing, a streaming app's row shows its last show watched there instead. Calendar and Tasks always
+     * open in the middle column, level with the first row (and so with the block), so they stay put whether a song plays
+     * or not and never stack under it.
      */
     private void showPreview() {
-        if (page != P_HOME) return;   // a settings page is open: no previews and no song
-        Item it = items.get(selected);
         boolean playing = songShown();
-        Watched last = songRow(it) ? null : watchedOn(it);
+        if (page != P_HOME) {
+            // a settings page: no previews, but the song stays
+            songBlock.show(playing ? song : null, ink, muted, paper, night);
+            placeBlock();
+            return;
+        }
+        Item it = items.get(selected);
         int want = it.kind == CALENDAR || it.kind == TASKS ? it.kind : songRow(it) ? SONG : NONE;
         boolean middle = want == CALENDAR || want == TASKS;
-        // the row's last show takes the block's place while it is selected, as the song's preview does on its row
+        // the row's last show takes the block's place only while no song does; the song's preview replaces it on its row
+        Watched last = playing ? null : watchedOn(it);
         if (last != null) songBlock.show(last, ink, muted, paper, night);
         else songBlock.show(playing && want != SONG ? song : null, ink, muted, paper, night);
-        FrameLayout.LayoutParams sp = (FrameLayout.LayoutParams) songBlock.getLayoutParams();
-        if (sp.topMargin != firstRowTop) {
-            sp.topMargin = firstRowTop;
-            songBlock.setLayoutParams(sp);
-        }
+        placeBlock();
         int top = middle ? firstRowTop : px(PREVIEW_TOP);
         int width = px(688);
         if (middle) {
-            // the middle column, but ending 48 px before the block when a long title widens it to the left
+            // the middle column, ending 48 px before the block (at its widest, the right-hand column)
             int blockLeft = activity.getResources().getDisplayMetrics().widthPixels - px(240);
             if (songBlock.getVisibility() == View.VISIBLE) {
                 songBlock.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -1013,6 +1027,15 @@ final class InkHome {
         fillPreview();
     }
 
+    /** The block's cover level with the first row; the kingfisher and its notes stand in the air above it. */
+    private void placeBlock() {
+        FrameLayout.LayoutParams sp = (FrameLayout.LayoutParams) songBlock.getLayoutParams();
+        if (sp.topMargin != firstRowTop - songBlock.overhang()) {
+            sp.topMargin = firstRowTop - songBlock.overhang();
+            songBlock.setLayoutParams(sp);
+        }
+    }
+
     /** Puts the page for the selection shown now on screen. */
     private void fillPreview() {
         preview.removeAllViews();
@@ -1025,21 +1048,12 @@ final class InkHome {
     }
 
     /**
-     * The song, larger: the block's moving bars before NOW PLAYING, the cover in shades of ink beside its title, artist
-     * and album, the progress line, the keys.
+     * The song, larger: NOW PLAYING, the cover in shades of ink beside its title, artist and album, the progress line,
+     * the keys.
      */
     private View songPreview(String app) {
         LinearLayout col = column();
-        LinearLayout head = row();
-        PlayingBars bars = new PlayingBars(activity);
-        bars.set(song.playing, ink);
-        // the block's bars at the size of this label (24 px against its 15), 1.6 times as large
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(
-                px(1.6f * (3 * PlayingBars.BAR_PX + 2 * PlayingBars.GAP_PX)), px(26));
-        bp.rightMargin = px(16);
-        head.addView(bars, bp);
-        head.addView(label(song.playing ? "NOW PLAYING" : "PAUSED"));
-        col.addView(head);
+        col.addView(label(song.playing ? "NOW PLAYING" : "PAUSED"));
         LinearLayout row = row();
         row.setGravity(Gravity.BOTTOM);
         CoverView cover = new CoverView(activity);
@@ -1086,12 +1100,12 @@ final class InkHome {
 
     private View calendarPreview() {
         LinearLayout col = column();
-        col.addView(label("TODAY"));
+        col.addView(label("TODAY", 20));
         JSONArray events = agenda == null ? null : agenda.optJSONArray("events");
         if (agenda == null) {
-            add(col, text(40, false, agendaStale ? "Waiting for today's agenda" : "Open Today once to fetch your day", muted), 12);
+            add(col, text(32, false, agendaStale ? "Waiting for today's agenda" : "Open Today once to fetch your day", muted), 10);
         } else if (events == null || events.length() == 0) {
-            add(col, text(40, false, "Nothing on the calendar", muted), 12);
+            add(col, text(32, false, "Nothing on the calendar", muted), 10);
         } else {
             long now = System.currentTimeMillis();
             int next = -1;
@@ -1105,9 +1119,9 @@ final class InkHome {
             for (int i = 0; i < Math.min(4, events.length()); i++) {
                 JSONObject e = events.optJSONObject(i);
                 LinearLayout row = row();
-                row.addView(text(40, i == next, e.optString("time"), ink), new LinearLayout.LayoutParams(px(152), ViewGroup.LayoutParams.WRAP_CONTENT));
-                row.addView(text(40, i == next, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                add(col, row, 24);
+                row.addView(text(32, i == next, e.optString("time"), ink), new LinearLayout.LayoutParams(px(124), ViewGroup.LayoutParams.WRAP_CONTENT));
+                row.addView(text(32, i == next, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                add(col, row, 20);
             }
         }
         JSONObject nextDay = agenda == null || events == null || events.length() > 0 ? null : agenda.optJSONObject("nextDay");
@@ -1115,17 +1129,17 @@ final class InkHome {
         JSONArray tomorrow = agenda == null ? null : agenda.optJSONArray("tomorrow");
         if (later != null && later.length() > 0) {
             // nothing today: the next day that has something, laid out like today
-            add(col, label(nextDay.optString("label")), 56);
+            add(col, label(nextDay.optString("label"), 20), 44);
             for (int i = 0; i < Math.min(4, later.length()); i++) {
                 JSONObject e = later.optJSONObject(i);
                 LinearLayout row = row();
-                row.addView(text(40, false, e.optString("time"), ink), new LinearLayout.LayoutParams(px(152), ViewGroup.LayoutParams.WRAP_CONTENT));
-                row.addView(text(40, false, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                add(col, row, 24);
+                row.addView(text(32, false, e.optString("time"), ink), new LinearLayout.LayoutParams(px(124), ViewGroup.LayoutParams.WRAP_CONTENT));
+                row.addView(text(32, false, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+                add(col, row, 20);
             }
         } else if (tomorrow != null && tomorrow.length() > 0) {
             JSONObject t = tomorrow.optJSONObject(0);
-            add(col, text(30, false, "Tomorrow · " + t.optString("time") + " " + t.optString("title"), muted), 36);
+            add(col, text(24, false, "Tomorrow · " + t.optString("time") + " " + t.optString("title"), muted), 28);
         }
         return col;
     }
@@ -1134,28 +1148,28 @@ final class InkHome {
         LinearLayout col = column();
         JSONArray tasks = agenda == null ? null : agenda.optJSONArray("tasks");
         int open = tasks == null ? 0 : tasks.length();
-        col.addView(label(open + " OPEN"));
+        col.addView(label(open + " OPEN", 20));
         if (agenda == null) {
-            add(col, text(40, false, agendaStale ? "Waiting for today's tasks" : "Open Today once to fetch your tasks", muted), 12);
+            add(col, text(32, false, agendaStale ? "Waiting for today's tasks" : "Open Today once to fetch your tasks", muted), 10);
         } else if (open == 0) {
-            add(col, text(40, false, "No open tasks", muted), 12);
+            add(col, text(32, false, "No open tasks", muted), 10);
         }
         for (int i = 0; i < Math.min(3, open); i++) {
             JSONObject t = tasks.optJSONObject(i);
             LinearLayout row = row();
-            row.addView(new Box(), new LinearLayout.LayoutParams(px(30), px(30)));
-            row.addView(new View(activity), new LinearLayout.LayoutParams(px(28), 1));
-            row.addView(text(40, false, t.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(new Box(), new LinearLayout.LayoutParams(px(24), px(24)));
+            row.addView(new View(activity), new LinearLayout.LayoutParams(px(22), 1));
+            row.addView(text(32, false, t.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
             String due = t.optString("due");
             if (!due.isEmpty()) {
                 LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                dp.leftMargin = px(20);   // a long title ellipsizes before the due day instead of running into it
-                row.addView(text(26, "overdue".equals(due), due, "overdue".equals(due) ? ink : muted), dp);
+                dp.leftMargin = px(16);   // a long title ellipsizes before the due day instead of running into it
+                row.addView(text(22, "overdue".equals(due), due, "overdue".equals(due) ? ink : muted), dp);
             }
-            add(col, row, 24);
+            add(col, row, 20);
         }
         JSONArray done = agenda == null ? null : agenda.optJSONArray("doneToday");
-        if (done != null && done.length() > 0) add(col, text(30, false, done.length() + " done today", muted), 36);
+        if (done != null && done.length() > 0) add(col, text(24, false, done.length() + " done today", muted), 28);
         return col;
     }
 
@@ -1199,7 +1213,12 @@ final class InkHome {
     }
 
     private TextView label(String s) {
-        TextView t = text(24, true, s, ink);
+        return label(s, 24);
+    }
+
+    /** Calendar's and Tasks' previews take a smaller one, to sit beside the song's block in the middle column. */
+    private TextView label(String s, float size) {
+        TextView t = text(size, true, s, ink);
         t.setLetterSpacing(0.12f);
         return t;
     }

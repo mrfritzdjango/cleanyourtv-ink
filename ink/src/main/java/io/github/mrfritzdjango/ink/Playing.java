@@ -10,8 +10,11 @@ public final class Playing {
     public static final String[] COLUMNS = {"title", "artist", "album", "pkg", "playing", "position", "positionAt", "speed",
             "duration", "pausedAt", "cover", "skips"};
     public static final long PAUSED_SHOWN_MS = 10 * 60_000L;
-    /** The cover's side in samples: one grey level per sample, 0 black to 255 white. */
-    public static final int COVER = 48;
+    /**
+     * The cover's side in samples: one grey level per sample, 0 black to 255 white. About one a pixel on Home's largest
+     * cover (the Spotify row's, 260 design pixels), so it is sharp there.
+     */
+    public static final int COVER = 256;
     /** The bits of {@link #skips}. */
     public static final int SKIP_PREVIOUS = 1;
     public static final int SKIP_NEXT = 2;

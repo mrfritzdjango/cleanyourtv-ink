@@ -59,6 +59,7 @@ public final class CoverView extends View {
                 pixels[i] = shade[s];
             }
             picture = Bitmap.createBitmap(pixels, w, h, Bitmap.Config.ARGB_8888);
+            picture.setHasMipMap(true);   // drawn a third of its size in the small block: smooth, not grainy
         }
         invalidate();
     }

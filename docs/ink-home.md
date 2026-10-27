@@ -24,7 +24,7 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
 - **Now playing**: while Spotify plays, the song sits at the top right, level with Calendar: the cover in shades of ink,
   the menagerie's collared kingfisher perched on its top edge (it bows and notes rise from its beak while the song
   plays; it sits still once paused), NOW PLAYING (PAUSED, for ten minutes, once paused), the song and the artist, beside the Calendar or Tasks
-  preview, which never stacks under it. With the Spotify row selected, a larger view with the album, a progress line and three marks for the keys takes its place. It comes from Today's
+  preview, which never stacks under it. With the Spotify row selected, a larger view takes its place, laid out the same way (the kingfisher on the cover, NOW PLAYING over the title), with the album, a progress line and time that move on every second, and three marks for the keys. It comes from Today's
   `NowPlaying`, which you allow once over ADB ([Today's README](../addons/morning-board/README.md#4-now-playing)).
 - **Last watched**: with YouTube, Netflix, Prime Video, Apple TV or Hotstar selected, the top right shows the last
   show or video you watched in that app, for a week: a 16:9 frame in shades of ink, LAST WATCHED, the title, and the

@@ -128,14 +128,15 @@ final class InkHome {
     /** Rows on screen at once on All apps; Down from the last one turns to the next page. */
     private static final int PAGE_ROWS = 8;
     /**
-     * Design pixels: the song preview's top on the right; Calendar's and Tasks', the middle of three equal columns
-     * between the list's edge (240) and the clock's (1680), which they fill.
+     * Design pixels: Calendar's and Tasks' previews, the middle of three equal columns between the list's edge (240) and
+     * the clock's (1680), which they fill; the song preview on the right, its cover's side and its width.
      */
-    private static final float PREVIEW_TOP = 150;
     private static final float MIDDLE_LEFT = 720;
     private static final float MIDDLE_WIDTH = 480;
-    /** The song preview's progress line moves on this often. */
-    private static final long TICK_MS = 10_000;
+    private static final float SONG_COVER = 216;
+    private static final float SONG_WIDTH = 584;
+    /** The song preview's time so far moves on with each second of the song, and its progress line with it. */
+    private static final long TICK_MS = 1_000;
     /** A skip's mark stays inked until Spotify moves the song, or this long at most. */
     private static final long SKIP_WAIT_MS = 3_000;
     /** Calendar's preview: at most this many of today's events. */
@@ -207,6 +208,8 @@ final class InkHome {
     private List<Animals.Animal> animals;
     private long animalsVersion;
     private Shows shows;
+    /** The kingfisher from Today's animals, for the song's block and its preview; null until read. */
+    private Animals.Animal kingfisher;
     private boolean resumed;
     /** Home went under another app (onStop): Home pressed there comes back to the row it left from. */
     private boolean away;
@@ -235,6 +238,7 @@ final class InkHome {
     /** The song preview's moving parts, while it is on screen. */
     private ProgressLine progress;
     private TextView elapsed;
+    private SongBird songBird;
     private Mark previousMark;
     private Mark playMark;
     private Mark nextMark;
@@ -275,9 +279,8 @@ final class InkHome {
         root.addView(list, lp);
 
         preview = new FrameLayout(activity);
-        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(688), px(500), Gravity.TOP | Gravity.END);
+        FrameLayout.LayoutParams pp = new FrameLayout.LayoutParams(px(SONG_WIDTH), px(500), Gravity.TOP | Gravity.END);
         pp.rightMargin = px(216);
-        pp.topMargin = px(PREVIEW_TOP);
         root.addView(preview, pp);
 
         songBlock = new SongBlock(activity, regular, bold, scale);
@@ -489,7 +492,11 @@ final class InkHome {
                 animals = Animals.load(today);
                 animalsVersion = version;
                 Animals.Animal bird = SongBird.find(animals);
-                main.post(() -> songBlock.perch(bird));
+                main.post(() -> {
+                    kingfisher = bird;
+                    songBlock.perch(bird);
+                    if (songBird != null) songBird.setBird(bird);
+                });
             }
             return today;
         } catch (PackageManager.NameNotFoundException e) {
@@ -815,6 +822,7 @@ final class InkHome {
         main.removeCallbacks(tick);
         progress = null;
         elapsed = null;
+        songBird = null;
         previousMark = playMark = nextMark = null;   // a skip's end (skipDone) then has no marks to ink
         shownPreview = NONE;
         render();
@@ -1141,8 +1149,9 @@ final class InkHome {
         if (last != null) songBlock.show(last, ink, muted, paper, night);
         else songBlock.show(playing && want != SONG ? song : null, ink, muted, paper, night);
         placeBlock();
-        int top = middle ? firstRowTop : px(PREVIEW_TOP);
-        int width = px(688);
+        // the song's cover level with the first row too, like the block's, the kingfisher standing in the air above it
+        int top = middle ? firstRowTop : firstRowTop - px(SONG_COVER * SongBird.OVER);
+        int width = px(SONG_WIDTH);
         if (middle) {
             // the middle column, ending 48 px before the block (at its widest, the right-hand column)
             int blockLeft = activity.getResources().getDisplayMetrics().widthPixels - px(240);
@@ -1164,7 +1173,7 @@ final class InkHome {
         pp.rightMargin = middle ? 0 : px(216);
         pp.width = width;
         pp.topMargin = top;
-        pp.height = px(middle ? 600 : 560);   // either way it ends above the clock
+        pp.height = px(600);   // either way it ends above the clock
         preview.setLayoutParams(pp);
         fillPreview();
     }
@@ -1184,6 +1193,7 @@ final class InkHome {
         main.removeCallbacks(tick);
         progress = null;
         elapsed = null;
+        songBird = null;
         previousMark = playMark = nextMark = null;
         if (shownPreview == CALENDAR) preview.addView(calendarPreview());
         else if (shownPreview == TASKS) preview.addView(tasksPreview());
@@ -1191,43 +1201,55 @@ final class InkHome {
     }
 
     /**
-     * The song, larger: NOW PLAYING, the cover in shades of ink beside its title, artist and album, the progress line,
-     * the three marks.
+     * The song, larger, laid out like the block: the cover in shades of ink with the kingfisher on it, and beside it NOW
+     * PLAYING over the title, artist and album; then the progress line, the times and the three marks.
      */
     private View songPreview(String app) {
         LinearLayout col = column();
-        col.addView(label(song.playing ? "NOW PLAYING" : "PAUSED"));
         LinearLayout row = row();
-        row.setGravity(Gravity.BOTTOM);
+        // the bird and its notes stand in the row's padding above the cover, the notes reaching over the words
+        row.setPadding(0, px(SONG_COVER * SongBird.OVER), 0, 0);
+        row.setClipToPadding(false);
+        row.setClipChildren(false);
+        FrameLayout perch = new FrameLayout(activity);
+        perch.setClipChildren(false);
         CoverView cover = new CoverView(activity);
         cover.set(song.cover, ink, paper, night);
-        row.addView(cover, new LinearLayout.LayoutParams(px(260), px(260)));
+        perch.addView(cover, new FrameLayout.LayoutParams(px(SONG_COVER), px(SONG_COVER)));
+        songBird = new SongBird(activity, scale);
+        songBird.setBird(kingfisher);
+        songBird.set(song.playing, ink, paper);
+        perch.addView(songBird, new FrameLayout.LayoutParams(px(SONG_COVER), px(SONG_COVER)));
+        row.addView(perch, new LinearLayout.LayoutParams(px(SONG_COVER), px(SONG_COVER)));
         LinearLayout words = new LinearLayout(activity);
         words.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text(54, true, song.title, ink);
+        TextView head = label(song.playing ? "NOW PLAYING" : "PAUSED");
+        head.setTextColor(muted);
+        words.addView(head, wrap(0));
+        TextView title = text(46, true, song.title, ink);
         title.setSingleLine(false);
         title.setMaxLines(2);   // a long title takes two lines, then …
-        words.addView(title, wrap(0));
-        words.addView(text(36, false, song.artist, ink), wrap(10));
+        words.addView(title, wrap(12));
+        words.addView(text(30, false, song.artist, ink), wrap(10));
         // a single's album has the song's name: said once is enough
-        if (!song.album.isEmpty() && !song.album.equals(song.title)) words.addView(text(28, false, song.album, muted), wrap(8));
+        if (!song.album.isEmpty() && !song.album.equals(song.title)) words.addView(text(24, false, song.album, muted), wrap(8));
         LinearLayout.LayoutParams wp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        wp.leftMargin = px(36);
+        wp.leftMargin = px(30);
         row.addView(words, wp);
-        add(col, row, 30);
+        add(col, row, 0);
         if (song.duration > 0) {
             progress = new ProgressLine();
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(6));
-            lp.topMargin = px(30);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(5));
+            lp.topMargin = px(26);
             col.addView(progress, lp);
             LinearLayout times = row();
-            elapsed = text(26, false, "", muted);
+            elapsed = text(24, false, "", muted);
             times.addView(elapsed, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-            times.addView(text(26, false, Playing.time(song.duration), muted), wrap(0));
-            add(col, times, 12);
+            times.addView(text(24, false, Playing.time(song.duration), muted), wrap(0));
+            add(col, times, 10);
             onTick();
         }
-        add(col, transport(app), 24);
+        add(col, transport(app), 20);
         return col;
     }
 
@@ -1238,9 +1260,9 @@ final class InkHome {
         previousMark = mark(row, "◀");
         playMark = mark(row, "hold OK");
         nextMark = mark(row, "▶");
-        TextView open = text(26, false, "OK opens " + app, muted);
+        TextView open = text(24, false, "OK opens " + app, muted);
         open.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
-        row.addView(open, new LinearLayout.LayoutParams(0, px(64), 1f));
+        row.addView(open, new LinearLayout.LayoutParams(0, px(56), 1f));
         marks();
         return row;
     }
@@ -1250,10 +1272,10 @@ final class InkHome {
         col.setOrientation(LinearLayout.VERTICAL);
         col.setGravity(Gravity.CENTER_HORIZONTAL);
         Mark m = new Mark();
-        col.addView(m, new LinearLayout.LayoutParams(px(64), px(64)));
+        col.addView(m, new LinearLayout.LayoutParams(px(56), px(56)));
         col.addView(text(24, false, key, muted), wrap(4));
         LinearLayout.LayoutParams lp = wrap(0);
-        lp.rightMargin = px(28);
+        lp.rightMargin = px(24);
         row.addView(col, lp);
         return m;
     }
@@ -1266,14 +1288,15 @@ final class InkHome {
         nextMark.set(Mark.NEXT, skipping == Playing.SKIP_NEXT, !song.canSkip(Playing.SKIP_NEXT));
     }
 
-    /** The progress line and the time so far, again every TICK_MS while the song plays. */
+    /** The progress line and the time so far, again as each second of the song comes while it plays. */
     private void onTick() {
         main.removeCallbacks(tick);
         if (progress == null || song == null) return;
         long at = song.positionAt(SystemClock.elapsedRealtime());
         progress.set(song.duration > 0 ? at / (float) song.duration : 0);
         elapsed.setText(Playing.time(at));
-        if (song.playing && resumed) main.postDelayed(tick, TICK_MS);
+        // just past the next whole second, so the time steps on with the song rather than up to a second behind it
+        if (song.playing && resumed) main.postDelayed(tick, TICK_MS - at % TICK_MS + 20);
     }
 
     private View calendarPreview() {

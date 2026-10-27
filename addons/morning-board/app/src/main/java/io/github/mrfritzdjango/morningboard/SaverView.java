@@ -41,7 +41,8 @@ import java.util.concurrent.Executors;
  * The e-ink screensaver: an animal in ink (outline, halftone dots, solid marks) beside the Home's big clock. The animal
  * holds still, then every saver_still_seconds goes out on its outing (its own way of moving, from moves.bin, played by
  * ShowView) and comes back. A new animal every saver_change_minutes, night ink from night_start to night_end, and the
- * whole picture, the animal's name and the hint with it, nudged a few pixels each minute so nothing burns in. While Spotify plays, the song sits at the top right
+ * whole picture, the animal's name and the hint with it, nudged a few pixels each minute so nothing burns in: at half
+ * past, so that when the animal changes nothing else on the page moves. While Spotify plays, the song sits at the top right
  * (NowPlaying, the same block as on Home). Used by AnimalDream and SaverActivity.
  */
 final class SaverView extends FrameLayout {
@@ -56,7 +57,8 @@ final class SaverView extends FrameLayout {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH);
 
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final Runnable minute = () -> update(true);
+    private final Runnable minute = this::update;
+    private final Runnable drift = this::nudge;
     private final Runnable outing = this::goOut;
     /** Made each time the view goes on screen and shut down when it leaves: the same view can come back, and a shut pool refuses work. */
     private ExecutorService io;
@@ -154,7 +156,8 @@ final class SaverView extends FrameLayout {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         io = Executors.newSingleThreadExecutor();
-        update(true);   // the clock at once; the animals follow
+        update();   // the clock at once; the animals follow
+        main.postDelayed(drift, untilHalfPast());
         Context context = getContext();
         context.getContentResolver().registerContentObserver(NowPlaying.URI, false, songChanged);
         ExecutorService loading = io;
@@ -167,7 +170,7 @@ final class SaverView extends FrameLayout {
                 animals = list;
                 shows = index;
                 song.perch(SongBird.find(list));
-                update(false);
+                update();
                 if (picked != null) pick(picked);
             });
         });
@@ -193,7 +196,7 @@ final class SaverView extends FrameLayout {
             if (animals.get(i).id.equals(id)) {
                 offset += i - shown;
                 soon = true;
-                update(false);
+                update();
                 return;
             }
         }
@@ -203,11 +206,11 @@ final class SaverView extends FrameLayout {
     void step(int by) {
         if (animals.isEmpty()) return;
         offset += by;
-        update(false);   // a new animal only: nothing else moves
+        update();   // a new animal only: nothing else moves
     }
 
-    /** onMinute: also nudge the picture a few pixels, once a minute, so nothing burns in. */
-    private void update(boolean onMinute) {
+    /** The clock, and the animal when its time is up. On the minute; the nudge has the half minute to itself. */
+    private void update() {
         main.removeCallbacks(minute);
         Resources res = getResources();
         long now = System.currentTimeMillis();
@@ -227,27 +230,37 @@ final class SaverView extends FrameLayout {
             caption.setTextColor(muted);
             hint.setTextColor(muted);
             art.colours(ink, paper);
-            if (index == shown) prepare(current);   // the same animal, redrawn in the new ink
+            if (index == shown) {   // the same animal, redrawn in the new ink; the old drawing's paper would show meanwhile
+                art.stop();
+                art.still(null, null);
+                prepare(current);
+            }
         }
         if (index != shown) {
             shown = index;
-            Animals.Animal a = index < 0 ? null : animals.get(index);
-            prepare(a);   // the next animal simply replaces this one
-            caption.setText(a == null ? "" : caption(a));
+            prepare(index < 0 ? null : animals.get(index));   // the next animal simply replaces this one, once it is drawn
         }
         clock.setText(Times.clock(LocalTime.now()));
         date.setText(DATE.format(LocalDate.now()));
         next.setText(nextEvent(now));
         showSong();   // also takes away a song paused for ten minutes
-        if (onMinute) {
-            nudge = (nudge + 1) % NUDGE.length;
-            for (View v : new View[] {stage, caption, hint}) {
-                v.setTranslationX(px(NUDGE[nudge][0]));
-                v.setTranslationY(px(NUDGE[nudge][1]));
-            }
-        }
         drawn = true;
         main.postDelayed(minute, 60_000 - now % 60_000 + 50);
+    }
+
+    /** The picture, the animal's name and the hint a few pixels over, so nothing burns in; again at the next half minute. */
+    private void nudge() {
+        nudge = (nudge + 1) % NUDGE.length;
+        for (View v : new View[] {stage, caption, hint}) {
+            v.setTranslationX(px(NUDGE[nudge][0]));
+            v.setTranslationY(px(NUDGE[nudge][1]));
+        }
+        main.postDelayed(drift, untilHalfPast());
+    }
+
+    private static long untilHalfPast() {
+        long now = System.currentTimeMillis();
+        return Math.floorMod(30_000 - now % 60_000, 60_000L) + 50;
     }
 
     /** The song NowPlaying follows (Today's own, no provider needed), in the ink of the moment; nothing when none. */
@@ -307,18 +320,23 @@ final class SaverView extends FrameLayout {
     }
 
     /**
-     * Gets the animal ready off the main thread: its outing and its drawing at the outing's size. It shows still at
-     * home, and goes out after saver_still_seconds. An animal without a show is drawn still in its box.
+     * Gets the animal ready off the main thread: its outing and its drawing at the outing's size. The animal before it
+     * stays, still or out, until then: the two swap in one frame, with the name, rather than the page standing empty
+     * while the drawing is made. It shows still at home, and goes out after saver_still_seconds. An animal without a
+     * show is drawn still in its box.
      */
     private void prepare(Animals.Animal a) {
         int gen = ++generation;
-        main.removeCallbacks(outing);
-        art.stop();
+        main.removeCallbacks(outing);   // the animal leaving goes out no more
         current = a;
-        currentOuting = null;
-        currentDrawing = null;
-        art.still(null, null);
-        if (a == null) return;
+        if (a == null) {
+            art.stop();
+            currentOuting = null;
+            currentDrawing = null;
+            art.still(null, null);
+            caption.setText("");
+            return;
+        }
         int inkNow = ink, paperNow = paper, width = getResources().getDisplayMetrics().widthPixels;
         Shows index = shows;
         if (io == null) return;   // off screen: it is drawn when the view comes back
@@ -333,9 +351,12 @@ final class SaverView extends FrameLayout {
             Shows.Show ready = s;
             main.post(() -> {
                 if (gen != generation) return;
+                main.removeCallbacks(outing);   // the animal leaving came home meanwhile and was due out again
+                art.stop();
                 currentOuting = ready;
                 currentDrawing = drawing;
                 art.still(ready, drawing);
+                caption.setText(caption(a));
                 main.postDelayed(outing, soon ? 2000 : stillMillis());
                 soon = false;
             });

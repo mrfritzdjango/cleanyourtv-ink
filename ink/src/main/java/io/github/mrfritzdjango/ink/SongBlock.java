@@ -26,8 +26,7 @@ import java.util.Arrays;
  * it shows that app's last show instead: a 16:9 frame, LAST WATCHED, the title and the episode with its app. No border; gone when nothing
  * is shown. The block stands {@link #overhang()} taller than the cover, above it, for the bird and its notes. It keeps to the
  * right-hand column ({@link #WIDTH_PX}): a song or artist too long for it rests at its start, glides slowly to its end, rests
- * there and slides back, {@link #GLIDES} times for each song, then rests at its start, rather than ending in … or pushing
- * the block to the left.
+ * there and slides back, again and again, rather than ending in … or pushing the block to the left.
  */
 public final class SongBlock extends LinearLayout {
     /** Design pixels (1920 wide): the cover's side, the text sizes. */
@@ -43,8 +42,6 @@ public final class SongBlock extends LinearLayout {
     private static final float GLIDE_PX_S = 40;
     private static final long END_REST_MS = 2500;
     private static final long BACK_MS = 700;
-    /** Glides for each new song or show: enough to read it, without moving all evening on the screensaver. */
-    private static final int GLIDES = 3;
 
     private final float scale;
     /** The cover with the bird standing over it. */
@@ -63,7 +60,6 @@ public final class SongBlock extends LinearLayout {
     private ValueAnimator gliding;
     /** The glide's next step, waiting out a rest. */
     private Runnable pending;
-    private int glides;
 
     public SongBlock(Context context, Typeface regular, Typeface bold, float scale) {
         super(context);
@@ -182,7 +178,6 @@ public final class SongBlock extends LinearLayout {
     /** Every line back at its start, and the glide again after the rest; only while the block is on screen. */
     private void startGlide() {
         stopGlide();
-        glides = 0;
         if (getVisibility() == VISIBLE && getWindowVisibility() == VISIBLE) later(this::glide, REST_MS);
     }
 
@@ -198,7 +193,6 @@ public final class SongBlock extends LinearLayout {
     /** Out to the furthest end at an even pace, a rest there, back quickly, a rest at the start; nothing when all fit. */
     private void glide() {
         pending = null;
-        if (glides++ >= GLIDES) return;   // read by now: it rests at its start
         int far = 0;
         for (TextView t : lines) far = Math.max(far, overflow(t));
         if (far == 0) return;

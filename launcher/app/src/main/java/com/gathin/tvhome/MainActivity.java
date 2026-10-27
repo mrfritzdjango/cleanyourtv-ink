@@ -41,6 +41,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onStop() {
+        ink.onStop();
+        super.onStop();
+    }
+
+    @Override
     protected void onDestroy() {
         ink.onDestroy();
         super.onDestroy();

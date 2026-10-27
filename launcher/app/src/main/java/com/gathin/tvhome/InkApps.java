@@ -52,12 +52,14 @@ final class InkApps {
         return out;
     }
 
-    /** The list with the app at {@code from} moved one place up (-1) or down (+1); unchanged at either end. */
-    static List<String> move(List<String> apps, int from, int by) {
+    /**
+     * The list with apps a and b changing places, the others where they were; unchanged when either is not in it. Moving
+     * a row on Home swaps it with its neighbour there, which in the saved list may have an app that is not shown between.
+     */
+    static List<String> swap(List<String> apps, String a, String b) {
         List<String> out = new ArrayList<>(apps);
-        int to = from + by;
-        if (from < 0 || from >= out.size() || to < 0 || to >= out.size()) return out;
-        Collections.swap(out, from, to);
+        int i = out.indexOf(a), j = out.indexOf(b);
+        if (i >= 0 && j >= 0) Collections.swap(out, i, j);
         return out;
     }
 
@@ -79,7 +81,10 @@ final class InkApps {
         return !first;
     }
 
-    /** At most this many app rows: the Home list holds eight rows above Screensaver, Calendar and Tasks among them. */
+    /**
+     * At most this many app rows: the Home list holds eight rows above Screensaver, Calendar and Tasks among them (true when
+     * they are shown).
+     */
     static int room(boolean today) {
         return today ? 6 : 8;
     }

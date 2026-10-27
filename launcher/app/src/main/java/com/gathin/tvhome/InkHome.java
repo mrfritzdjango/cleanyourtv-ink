@@ -14,7 +14,6 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -78,7 +77,7 @@ import java.util.concurrent.Executors;
  * WATCHED: a 16:9 frame, the title, the episode and the app), for a week after it was watched. Selection is an inverted ink bar; the only
  * motion is the preview simply swapping, with no flash. Every 30 seconds an animal from Today crosses the whole screen in its own way
  * (its pass, played by ShowView over everything; keys still work under it), TITANE every fifth time. Night ink from
- * 19:30 to 07:00. The fonts, the animals and their shows are Today's own (read through createPackageContext), so the
+ * 19:30 to 07:00, or all day with ink_night_always. The fonts, the animals and their shows are Today's own (read through createPackageContext), so the
  * launcher carries no copy of them. MainActivity hands its view, lifecycle and keys here and sets up nothing else.
  * The Settings row opens ink pages over Home: Home apps, where the owner adds, moves and removes the app rows (kept by
  * InkApps), and TV settings.
@@ -139,6 +138,16 @@ final class InkHome {
     private static final long TICK_MS = 10_000;
     /** A skip's mark stays inked until Spotify moves the song, or this long at most. */
     private static final long SKIP_WAIT_MS = 3_000;
+    /** Calendar's preview: at most this many of today's events. */
+    private static final int PREVIEW_EVENTS = 4;
+    /** Why there is no agenda for today, as Today's provider says (its Agenda.NETWORK, KEY, SCRIPT; 0 when none)… */
+    private static final int NETWORK = 1;
+    private static final int KEY = 2;
+    private static final int SCRIPT = 3;
+    /** …or as Home finds when it reads it: Today signed with another key, or an answer it cannot read. */
+    private static final int OTHER_KEY = 10;
+    private static final int UNREADABLE = 11;
+    private static final long HOUR_MS = 60 * 60_000L;
     private static final String TITANE = "titan-triggerfish";
     /** TITANE takes one pass in this many. */
     private static final int TITANE_EVERY = 5;
@@ -199,8 +208,23 @@ final class InkHome {
     private long animalsVersion;
     private Shows shows;
     private boolean resumed;
+    /** Home went under another app (onStop): Home pressed there comes back to the row it left from. */
+    private boolean away;
+    /** Minutes Home has been on screen, for asking Today for a fresh agenda every quarter of an hour. */
+    private int minutes;
+    /** Animal passes so far: read once, counted in memory, kept in prefs when Home goes; -1 until read. The io thread's. */
+    private volatile int passes = -1;
+    /** All apps' rows while its pages are open: read again when Home comes back or the pages close. */
+    private List<Item> allCache;
+    /** Today has its script set up (board.properties): without it the Calendar and Tasks rows are left out. */
+    private boolean calendarOn = true;
+    /** Today's notification listener is allowed: without it no song is ever seen, and Settings says so. */
+    private boolean listening = true;
     /** Today's last answer, null when there is none from today. */
     private JSONObject agenda;
+    /** When that answer came, and why the last fetch failed (NETWORK, KEY, SCRIPT, OTHER_KEY, UNREADABLE), 0 if not. */
+    private long agendaUpdated;
+    private int agendaProblem;
     /** There is an answer, but from an earlier day: the previews wait for today's. */
     private boolean agendaStale;
     private LocalDate agendaDay;
@@ -319,7 +343,7 @@ final class InkHome {
         items.clear();
         PackageManager pm = activity.getPackageManager();
         today = installed(pm, TODAY);
-        if (today) {
+        if (today && calendarOn) {
             items.add(new Item(CALENDAR, "Calendar", null));
             items.add(new Item(TASKS, "Tasks", null));
         }
@@ -357,12 +381,12 @@ final class InkHome {
 
     void onResume() {
         buildItems();
+        allCache = null;
         // back from an app or the Play Store: the lists are read again, so an app installed meanwhile is in them
         if (page == P_APPS || page == P_ALL) openOn(page, row < rows.size() ? rows.get(row).pkg : null, row);
         render();
         loadAgenda();
-        // Today fetches a fresh agenda when it was not fetched in the last minutes (its RefreshReceiver).
-        activity.sendBroadcast(new Intent(TODAY + ".REFRESH").setPackage(TODAY));
+        refresh();
         try {
             activity.getContentResolver().registerContentObserver(AGENDA, false, observer);
             activity.getContentResolver().registerContentObserver(NOW, false, songObserver);
@@ -377,6 +401,16 @@ final class InkHome {
         main.removeCallbacks(pass);
         main.postDelayed(pass, untilNextPass());
         io.execute(this::readAnimals);   // the kingfisher for the song's block, without waiting for the first pass
+        away = false;
+    }
+
+    void onStop() {
+        away = true;
+    }
+
+    /** Today fetches a fresh agenda when its own gaps allow (its RefreshReceiver), and Home's observer hears of it. */
+    private void refresh() {
+        activity.sendBroadcast(new Intent(TODAY + ".REFRESH").setPackage(TODAY));
     }
 
     void onPause() {
@@ -392,17 +426,19 @@ final class InkHome {
         okHeld = false;
         main.removeCallbacks(skipDone);
         skipping = 0;
+        if (passes >= 0) activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE).edit().putInt("passes", passes).apply();
     }
 
+    /**
+     * Home pressed. On Home: back to the top of the list. From inside an app: back on the row it was opened from (its
+     * LAST WATCHED shows), as Back from it does. Either way Home closes the settings pages.
+     */
     void onNewIntent() {
-        if (page != P_HOME) {
-            page = P_HOME;   // Home closes the settings pages
-            selected = 0;
-            render();
-        } else if (selected != 0) {
-            selected = 0;   // Home on Home: back to the top of the list
-            render();
-        }
+        if (away && page == P_HOME) return;
+        page = P_HOME;
+        moving = -1;
+        if (!away) selected = 0;
+        render();
     }
 
     void onDestroy() {
@@ -416,10 +452,13 @@ final class InkHome {
         if (n != night || !coloured) render();
         clock.setText(clockText(LocalTime.now()));
         date.setText(DATE.format(LocalDate.now()));
-        if (agendaDay != null && !agendaDay.equals(LocalDate.now())) {
-            // midnight with Home on screen: yesterday's agenda is no longer today's
-            loadAgenda();
-            activity.sendBroadcast(new Intent(TODAY + ".REFRESH").setPackage(TODAY));
+        minutes++;
+        boolean newDay = agendaDay != null && !agendaDay.equals(LocalDate.now());
+        // Home on screen all day keeps up with the phone: Today is asked every quarter of an hour, and every minute while
+        // there is nothing for today (past midnight, the network not up yet)
+        if (today && calendarOn && agendaProblem != OTHER_KEY && (newDay || agenda == null || minutes % 15 == 0)) refresh();
+        if (newDay) {
+            loadAgenda();   // midnight with Home on screen: yesterday's agenda is no longer today's
         } else if (shownPreview != NONE) {
             shownPreview = NONE;   // the next event moves on with the clock
             showPreview();
@@ -489,9 +528,8 @@ final class InkHome {
             if (TITANE.equals(a.id)) titane = a;
             else others.add(a);
         }
-        SharedPreferences prefs = activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE);
-        int n = prefs.getInt("passes", 0);
-        prefs.edit().putInt("passes", n + 1).apply();
+        if (passes < 0) passes = activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE).getInt("passes", 0);
+        int n = passes++;
         if (titane != null && (n % TITANE_EVERY == TITANE_EVERY - 1 || others.isEmpty())) return titane;
         return others.isEmpty() ? null : others.get((n - n / TITANE_EVERY) % others.size());
     }
@@ -506,23 +544,42 @@ final class InkHome {
         io.execute(() -> {
             JSONObject result = null;
             long updated = 0;
+            int problem = 0;
+            boolean configured = true;
             try (Cursor c = activity.getContentResolver().query(AGENDA, null, null, null, null)) {
                 if (c != null && c.moveToFirst()) {
-                    result = new JSONObject(c.getString(0));
+                    if (!c.isNull(0)) result = new JSONObject(c.getString(0));
                     updated = c.getLong(1);
+                    if (c.getColumnCount() > 3) {   // an older Today has only the answer and its time
+                        problem = c.getInt(2);
+                        configured = c.getInt(3) != 0;
+                    }
                 }
-            } catch (Exception ignored) {
-                // no Today, no permission, or nothing fetched yet: the preview says so
+            } catch (SecurityException e) {
+                problem = OTHER_KEY;   // Today is there but signed with another key: Home may not read it
+            } catch (Exception e) {
+                problem = UNREADABLE;
             }
             LocalDate day = Instant.ofEpochMilli(updated).atZone(ZoneId.systemDefault()).toLocalDate();
             boolean stale = result != null && !day.equals(LocalDate.now());
             JSONObject r = stale ? null : result;
+            long up = updated;
+            int why = problem;
+            boolean on = configured;
             main.post(() -> {
                 agenda = r;
                 agendaStale = stale;
                 agendaDay = r == null ? null : day;
+                agendaUpdated = up;
+                agendaProblem = why;
                 shownPreview = NONE;   // rebuild the preview with the new day
-                showPreview();
+                if (on != calendarOn) {
+                    calendarOn = on;   // the script set up, or not: Calendar and Tasks come or go
+                    buildItems();
+                    render();
+                } else {
+                    showPreview();
+                }
             });
         });
     }
@@ -531,13 +588,17 @@ final class InkHome {
     private void loadSong() {
         io.execute(() -> {
             Playing p = null;
+            boolean allowed = true;
             try (Cursor c = activity.getContentResolver().query(NOW, null, null, null, null)) {
                 p = Playing.from(c);
+                if (c != null) allowed = c.getExtras().getBoolean("listening", true);   // an older Today does not say
             } catch (Exception ignored) {
                 // no Today, an older one, or no permission: no song
             }
             Playing got = p;
+            boolean on = allowed;
             main.post(() -> {
+                listening = on;
                 if (skipping != 0 && moved(skippedFrom, got)) {
                     main.removeCallbacks(skipDone);
                     skipping = 0;
@@ -684,6 +745,7 @@ final class InkHome {
     }
 
     private void start(Intent intent) {
+        if (intent == null) return;   // the app went (disabled, uninstalled) while its row was on screen
         try {
             activity.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (ActivityNotFoundException | SecurityException ignored) {
@@ -719,6 +781,7 @@ final class InkHome {
                 title = "SETTINGS";
                 rows.add(new Item(HOME_APPS, "Home apps", null));
                 rows.add(new Item(TV_SETTINGS, "TV settings", null));
+                if (today && !listening) rows.add(new Item(NOTE, "Now playing is off: see the setup guide", null));
                 break;
             case P_APPS:
                 title = "HOME APPS";
@@ -732,7 +795,7 @@ final class InkHome {
                 if (shownApps().contains(editing.pkg)) {
                     rows.add(new Item(MOVE, "Move", null));
                     rows.add(new Item(REMOVE, "Remove from Home", null));
-                } else if (shownApps().size() < InkApps.room(today)) {
+                } else if (shownApps().size() < InkApps.room(today && calendarOn)) {
                     rows.add(new Item(ADD, "Add to Home", null));
                 } else {
                     rows.add(new Item(NOTE, "Home is full: remove an app first", null));
@@ -742,6 +805,7 @@ final class InkHome {
                 title = "ALL APPS";
                 rows.addAll(allApps(pm));
                 if (launchIntent(pm, STORE_PACKAGE) != null) rows.add(new Item(STORE, "Get more apps", null));
+                if (rows.isEmpty()) rows.add(new Item(NOTE, "No apps to show", null));
                 hint = "OK on an app to open it or add it to Home";
         }
         row = Math.max(0, Math.min(at, rows.size() - 1));
@@ -750,6 +814,8 @@ final class InkHome {
         preview.removeAllViews();
         main.removeCallbacks(tick);
         progress = null;
+        elapsed = null;
+        previousMark = playMark = nextMark = null;   // a skip's end (skipDone) then has no marks to ink
         shownPreview = NONE;
         render();
     }
@@ -771,9 +837,15 @@ final class InkHome {
     }
 
     private void closePages() {
+        closePages(true);
+    }
+
+    /** onSettings: Back from Settings lands on the Settings row; Menu, which can open them from any row, leaves the bar. */
+    private void closePages(boolean onSettings) {
         page = P_HOME;
         moving = -1;
-        for (int i = 0; i < items.size(); i++) if (items.get(i).kind == SETTINGS) selected = i;   // back on Settings
+        allCache = null;
+        for (int i = 0; onSettings && i < items.size(); i++) if (items.get(i).kind == SETTINGS) selected = i;
         render();
     }
 
@@ -791,6 +863,8 @@ final class InkHome {
             else step(by);
         } else if (code == KeyEvent.KEYCODE_BACK) {
             back();
+        } else if (code == KeyEvent.KEYCODE_MENU) {
+            closePages(false);   // Menu opened them; Menu again puts them away
         } else if (ok) {
             choose(rows.get(row));
         }
@@ -857,8 +931,8 @@ final class InkHome {
                 render();
                 break;
             case REMOVE:
-                List<String> left = shownApps();
-                int was = left.indexOf(editing.pkg);
+                int was = shownApps().indexOf(editing.pkg);
+                List<String> left = chosenApps();
                 left.remove(editing.pkg);
                 saveApps(left);
                 if (editFrom == P_ALL) openOn(P_ALL, editing.pkg);
@@ -868,8 +942,11 @@ final class InkHome {
                 openPage(P_ALL, 0);
                 break;
             case ADD:
-                List<String> more = shownApps();
-                more.add(editing.pkg);   // at the bottom of Home's apps
+                List<String> more = chosenApps();
+                List<String> shown = shownApps();
+                more.remove(editing.pkg);
+                // at the bottom of Home's apps, ahead of any chosen app that is not on the TV now
+                more.add(shown.isEmpty() ? 0 : more.indexOf(shown.get(shown.size() - 1)) + 1, editing.pkg);
                 saveApps(more);
                 openOn(editFrom, editing.pkg);
                 break;
@@ -886,7 +963,7 @@ final class InkHome {
         List<String> apps = shownApps();
         int to = moving + by;
         if (to < 0 || to >= apps.size()) return;
-        saveApps(InkApps.move(apps, moving, by));
+        saveApps(InkApps.swap(chosenApps(), apps.get(moving), apps.get(to)));
         Item it = rows.get(moving);
         rows.set(moving, rows.get(to));
         rows.set(to, it);
@@ -912,12 +989,21 @@ final class InkHome {
         return out;
     }
 
+    /**
+     * The Home apps as chosen, in order, with those not shown now (not installed, disabled, or past Home's room): an edit
+     * changes this list, so an app that is away for a while is still there when it comes back.
+     */
+    private List<String> chosenApps() {
+        return new ArrayList<>(InkApps.load(activity, dockApps));
+    }
+
     private int indexOf(String pkg) {
         return Math.max(0, shownApps().indexOf(pkg));
     }
 
     /** Every app the TV can open, by name; not this launcher or Today, which Home already covers. */
     private List<Item> allApps(PackageManager pm) {
+        if (allCache != null) return allCache;   // every app's name, read once while the pages are open
         List<Item> out = new ArrayList<>();
         List<String> seen = new ArrayList<>();
         for (String category : new String[] {Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER}) {
@@ -930,6 +1016,7 @@ final class InkHome {
         }
         Collator byName = Collator.getInstance();
         out.sort((a, b) -> byName.compare(a.label, b.label));
+        allCache = out;
         return out;
     }
 
@@ -1003,6 +1090,12 @@ final class InkHome {
             shownPreview = NONE;
         }
         list.removeAllViews();
+        // on Home a long app name ends in … before the middle column, where Calendar's and Tasks' previews open
+        int width = px(page == P_HOME ? MIDDLE_LEFT - 48 - 216 : 820);
+        if (list.getLayoutParams().width != width) {
+            list.getLayoutParams().width = width;
+            list.requestLayout();
+        }
         if (page != P_HOME) {
             renderPage();
             showPreview();   // the song's block, over the page too
@@ -1158,7 +1251,7 @@ final class InkHome {
         col.setGravity(Gravity.CENTER_HORIZONTAL);
         Mark m = new Mark();
         col.addView(m, new LinearLayout.LayoutParams(px(64), px(64)));
-        col.addView(text(20, false, key, muted), wrap(4));
+        col.addView(text(24, false, key, muted), wrap(4));
         LinearLayout.LayoutParams lp = wrap(0);
         lp.rightMargin = px(28);
         row.addView(col, lp);
@@ -1167,7 +1260,7 @@ final class InkHome {
 
     /** The three marks, as the keys and Spotify stand now: inked while a key works, faint where Spotify won't skip. */
     private void marks() {
-        if (playMark == null) return;
+        if (playMark == null || song == null) return;
         previousMark.set(Mark.PREVIOUS, skipping == Playing.SKIP_PREVIOUS, !song.canSkip(Playing.SKIP_PREVIOUS));
         playMark.set(song.playing ? Mark.PAUSE : Mark.PLAY, okHeld, false);
         nextMark.set(Mark.NEXT, skipping == Playing.SKIP_NEXT, !song.canSkip(Playing.SKIP_NEXT));
@@ -1185,59 +1278,111 @@ final class InkHome {
 
     private View calendarPreview() {
         LinearLayout col = column();
-        col.addView(label("TODAY", 20));
+        col.addView(label("TODAY", 24));
         JSONArray events = agenda == null ? null : agenda.optJSONArray("events");
         if (agenda == null) {
-            add(col, text(32, false, agendaStale ? "Waiting for today's agenda" : "Open Today once to fetch your day", muted), 10);
+            add(col, status(waiting("your day", "Calendar")), 10);
         } else if (events == null || events.length() == 0) {
             add(col, text(32, false, "Nothing on the calendar", muted), 10);
         } else {
+            // what is still to come: timed events not over yet, the day's all-day ones in the rows they leave (above them)
             long now = System.currentTimeMillis();
-            int next = -1;
+            List<JSONObject> allDay = new ArrayList<>();
+            List<JSONObject> coming = new ArrayList<>();
             for (int i = 0; i < events.length(); i++) {
                 JSONObject e = events.optJSONObject(i);
-                if (!e.optBoolean("allDay") && e.optLong("endMs") > now) {
-                    next = i;
-                    break;
-                }
+                if (e == null) continue;
+                if (e.optBoolean("allDay")) allDay.add(e);
+                else if (e.optLong("endMs") > now) coming.add(e);
             }
-            for (int i = 0; i < Math.min(4, events.length()); i++) {
-                JSONObject e = events.optJSONObject(i);
-                LinearLayout row = row();
-                row.addView(text(32, i == next, e.optString("time"), ink), new LinearLayout.LayoutParams(px(124), ViewGroup.LayoutParams.WRAP_CONTENT));
-                row.addView(text(32, i == next, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                add(col, row, 20);
+            int timed = Math.min(coming.size(), allDay.isEmpty() ? PREVIEW_EVENTS : PREVIEW_EVENTS - 1);
+            int whole = Math.min(allDay.size(), PREVIEW_EVENTS - timed);
+            if (whole + timed == 0) add(col, text(32, false, "Nothing more today", muted), 10);
+            for (int i = 0; i < whole; i++) add(col, eventLine(allDay.get(i), false), 20);
+            boolean nextShown = false;
+            for (int i = 0; i < timed; i++) {
+                JSONObject e = coming.get(i);
+                // the next one in bold; one carried over from an earlier day (a conference) never is
+                boolean next = !nextShown && !e.optBoolean("carried");
+                nextShown |= next;
+                add(col, eventLine(e, next), 20);
             }
+            int more = allDay.size() - whole + coming.size() - timed;
+            if (more > 0) add(col, text(24, false, "+" + more + " more", muted), 16);
         }
         JSONObject nextDay = agenda == null || events == null || events.length() > 0 ? null : agenda.optJSONObject("nextDay");
         JSONArray later = nextDay == null ? null : nextDay.optJSONArray("events");
         JSONArray tomorrow = agenda == null ? null : agenda.optJSONArray("tomorrow");
         if (later != null && later.length() > 0) {
             // nothing today: the next day that has something, laid out like today
-            add(col, label(nextDay.optString("label"), 20), 44);
-            for (int i = 0; i < Math.min(4, later.length()); i++) {
+            add(col, label(nextDay.optString("label"), 24), 44);
+            for (int i = 0; i < Math.min(PREVIEW_EVENTS, later.length()); i++) {
                 JSONObject e = later.optJSONObject(i);
-                LinearLayout row = row();
-                row.addView(text(32, false, e.optString("time"), ink), new LinearLayout.LayoutParams(px(124), ViewGroup.LayoutParams.WRAP_CONTENT));
-                row.addView(text(32, false, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-                add(col, row, 20);
+                if (e != null) add(col, eventLine(e, false), 20);
             }
         } else if (tomorrow != null && tomorrow.length() > 0) {
             JSONObject t = tomorrow.optJSONObject(0);
             add(col, text(24, false, "Tomorrow · " + t.optString("time") + " " + t.optString("title"), muted), 28);
         }
+        asOf(col);
         return col;
+    }
+
+    /** One event: its time ("9:00", "All day", "–17:00" for one carried over) and its title. */
+    private View eventLine(JSONObject e, boolean isBold) {
+        LinearLayout row = row();
+        row.addView(text(32, isBold, e.optString("time"), ink), new LinearLayout.LayoutParams(px(150), ViewGroup.LayoutParams.WRAP_CONTENT));
+        row.addView(text(32, isBold, e.optString("title"), ink), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        return row;
+    }
+
+    /**
+     * What a preview with nothing of today's says: being fetched, or why not (no network, the script's key or error,
+     * Today signed with another key), so a preview that stays empty says what to do.
+     */
+    private String waiting(String what, String screen) {
+        switch (agendaProblem) {
+            case OTHER_KEY:
+                return "Today is signed with another key: build both apps on the same computer";
+            case UNREADABLE:
+                return "Can't read Today: install both apps from the same build";
+            case NETWORK:
+                return "No connection yet: trying again";
+            case KEY:
+                return "The script refused Today's key: open " + screen + " for more";
+            case SCRIPT:
+                return "The script answered with an error: open " + screen + " for more";
+            default:
+                return agendaStale ? "Fetching today's agenda…" : "Fetching " + what + "…";
+        }
+    }
+
+    /** A message that may take more than one line. */
+    private TextView status(String s) {
+        TextView t = text(32, false, s, muted);
+        t.setSingleLine(false);
+        t.setMaxLines(3);
+        return t;
+    }
+
+    /** Under a preview whose answer is over an hour old or whose last fetch failed: from when it is, and why. */
+    private void asOf(LinearLayout col) {
+        if (agenda == null || agendaProblem == 0 && System.currentTimeMillis() - agendaUpdated < HOUR_MS) return;
+        String why = agendaProblem == NETWORK ? " · offline" : agendaProblem == KEY ? " · key refused"
+                : agendaProblem == SCRIPT ? " · script error" : "";
+        LocalTime at = Instant.ofEpochMilli(agendaUpdated).atZone(ZoneId.systemDefault()).toLocalTime();
+        add(col, text(24, false, "as of " + clockText(at) + why, muted), 28);
     }
 
     private View tasksPreview() {
         LinearLayout col = column();
         JSONArray tasks = agenda == null ? null : agenda.optJSONArray("tasks");
         int open = tasks == null ? 0 : tasks.length();
-        col.addView(label(open + " OPEN", 20));
+        col.addView(label(agenda == null ? "TASKS" : open + " OPEN", 24));
         if (agenda == null) {
-            add(col, text(32, false, agendaStale ? "Waiting for today's tasks" : "Open Today once to fetch your tasks", muted), 10);
+            add(col, status(waiting("your tasks", "Tasks")), 10);
         } else if (open == 0) {
-            add(col, text(32, false, "No open tasks", muted), 10);
+            add(col, text(32, false, agenda.optBoolean("tasksFailed") ? "Couldn't read Google Tasks" : "No open tasks", muted), 10);
         }
         for (int i = 0; i < Math.min(3, open); i++) {
             JSONObject t = tasks.optJSONObject(i);
@@ -1249,12 +1394,13 @@ final class InkHome {
             if (!due.isEmpty()) {
                 LinearLayout.LayoutParams dp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
                 dp.leftMargin = px(16);   // a long title ellipsizes before the due day instead of running into it
-                row.addView(text(22, "overdue".equals(due), due, "overdue".equals(due) ? ink : muted), dp);
+                row.addView(text(24, "overdue".equals(due), due, "overdue".equals(due) ? ink : muted), dp);
             }
             add(col, row, 20);
         }
         JSONArray done = agenda == null ? null : agenda.optJSONArray("doneToday");
         if (done != null && done.length() > 0) add(col, text(24, false, done.length() + " done today", muted), 28);
+        asOf(col);
         return col;
     }
 

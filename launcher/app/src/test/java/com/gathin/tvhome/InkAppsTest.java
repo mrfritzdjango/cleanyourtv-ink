@@ -31,12 +31,11 @@ public class InkAppsTest {
                 InkApps.decode("com.wbd.stream,, com.netflix.ninja,com.wbd.stream,not a package"));
     }
 
-    @Test public void movesOnePlaceAndStopsAtTheEnds() {
-        List<String> apps = Arrays.asList("a.a", "b.b", "c.c");
-        assertEquals(Arrays.asList("b.b", "a.a", "c.c"), InkApps.move(apps, 0, 1));
-        assertEquals(Arrays.asList("a.a", "c.c", "b.b"), InkApps.move(apps, 2, -1));
-        assertEquals(apps, InkApps.move(apps, 0, -1));
-        assertEquals(apps, InkApps.move(apps, 2, 1));
+    @Test public void swapKeepsTheAppsNotShownWhereTheyAre() {
+        // x.x is chosen but not on the TV now: moving c.c up past b.b on Home leaves it in place
+        List<String> apps = Arrays.asList("a.a", "b.b", "x.x", "c.c");
+        assertEquals(Arrays.asList("a.a", "c.c", "x.x", "b.b"), InkApps.swap(apps, "c.c", "b.b"));
+        assertEquals(apps, InkApps.swap(apps, "a.a", "gone.app"));
     }
 
     @Test public void roomLeavesEightRowsAboveScreensaver() {

@@ -16,11 +16,11 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
   Settings                                                  Mon 26 Oct
 ```
 
-- **The list**: Calendar and Tasks (from the [Today add-on](../addons/morning-board/)), then your apps (the ones
+- **The list**: Calendar and Tasks (from the [Today add-on](../addons/morning-board/), once its script is set up), then your apps (the ones
   chosen in [Home apps](#choosing-the-apps), or `dock_apps` until you change them), then Screensaver (at most eight
   rows above it), and Settings last, a little apart.
 - **The previews**: while Calendar or Tasks is selected, today's events or your open tasks appear in the middle of
-  three equal columns, level with the first row, whether a song plays or not, read from Today (Home itself has no network). The next event is bold and moves on with the clock.
+  three equal columns, level with the first row, whether a song plays or not, read from Today (Home itself has no network). It shows what is still to come: events that are over drop off, the next one is bold, and "+2 more" says what didn't fit. An event that began on an earlier day shows when it ends ("–17:00") and is never the next one.
 - **Now playing**: while Spotify plays, the song sits at the top right, level with Calendar: the cover in shades of ink,
   the menagerie's collared kingfisher perched on its top edge (it bows and notes rise from its beak while the song
   plays; it sits still once paused), NOW PLAYING (PAUSED, for ten minutes, once paused), the song and the artist, beside the Calendar or Tasks
@@ -37,7 +37,7 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
   `night_always`; change both together ([Build settings](#build-settings)).
 
 Keys: Up and Down move the ink bar, OK opens, and on the Spotify row OK held pauses or plays (a short press opens
-Spotify when you let go), Left goes to the song before and Right to the next. Elsewhere Left and Right do nothing. Menu opens the same Settings page as the Settings row. Home on Home goes back to the top of the list.
+Spotify when you let go), Left goes to the song before and Right to the next. Elsewhere Left and Right do nothing. Menu opens the same Settings page as the Settings row, and closes it again. Home on Home goes back to the top of the list; Home from inside an app comes back to that app's row, as Back does.
 
 ## Choosing the apps
 
@@ -61,8 +61,9 @@ Which apps are on Home is up to you, on the TV, with the remote: **Settings → 
 - **Get more apps**, at the end of All apps, opens the Play Store. Install an app there (HBO Max, say), press Back,
   and it is in All apps, ready to add. Apps installed from a phone (play.google.com, Install, pick the TV) show up
   the same way.
-- Home shows at most six apps with Calendar and Tasks (eight without Today), so the list stays one page. When it is
-  full, an app's page says so instead of offering Add to Home: remove one first.
+- Home shows at most six apps with Calendar and Tasks (eight without them), so the list stays one page. When it is
+  full, an app's page says so instead of offering Add to Home: remove one first. An app you chose that is off the TV
+  for a while (disabled, reinstalling) keeps its place and comes back to it.
 - Back goes up one level (an app's page → the list it came from → Home apps → Settings → Home), and Home closes the
   pages. **TV settings**, under Settings, opens the TV's own settings, which the Settings row opened before.
 
@@ -95,8 +96,13 @@ these from it, and carries no copy of them:
 | The animals and their shows (`animals.json`, `moves.bin`) | No animals pass |
 | The Atkinson Hyperlegible font | The system sans-serif |
 
-Home asks Today for a fresh agenda each time it comes up (at most every 5 minutes), and shows "Waiting for today's
-agenda" rather than yesterday's when the last answer is from an earlier day.
+Home asks Today for a fresh agenda each time it comes up, every quarter of an hour while it stays on screen, and every
+minute while it has nothing for today (Today fetches at most every 5 minutes after a good answer, every minute after a
+failed one). It never shows yesterday's agenda as today's: until today's comes, the preview says it is fetching, or why
+it can't (no connection, the script refused the key or answered with an error, Today signed with another key). An
+answer over an hour old, or one the last fetch could not replace, says "as of 8:12". Without Today's script set up,
+the Calendar and Tasks rows are left out. If Today's notification listener is not allowed, Settings says "Now playing
+is off".
 
 The animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing block (`Playing`, `Watched`,
 `CoverView`, `SongBlock`, `SongBird`) live in [`ink/`](../ink/) at the repo root and are compiled into both apps, so

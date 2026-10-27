@@ -76,11 +76,11 @@ import java.util.concurrent.Executors;
  * song and a streaming app's row selected (YouTube, Netflix…), the top right shows that app's last show instead (LAST
  * WATCHED: a 16:9 frame, the title, the episode and the app), for a week after it was watched. Selection is an inverted ink bar; the only
  * motion is the preview simply swapping, with no flash. Every 30 seconds an animal from Today crosses the whole screen in its own way
- * (its pass, played by ShowView over everything; keys still work under it), TITANE every fifth time. Night ink from
+ * (its pass, played by ShowView over everything; keys still work under it), TITANE every fifth time (or in turn with the others, as Settings chooses). Night ink from
  * 19:30 to 07:00, or all day with ink_night_always. The fonts, the animals and their shows are Today's own (read through createPackageContext), so the
  * launcher carries no copy of them. MainActivity hands its view, lifecycle and keys here and sets up nothing else.
  * The Settings row opens ink pages over Home: Home apps, where the owner adds, moves and removes the app rows (kept by
- * InkApps), and TV settings.
+ * InkApps), TV settings, and how often TITANE comes by.
  */
 final class InkHome {
     static final String TODAY = "io.github.mrfritzdjango.morningboard";
@@ -117,6 +117,8 @@ final class InkHome {
     private static final int ADD = 15;
     /** All apps: the Play Store, for apps that are not on the TV yet. */
     private static final int STORE = 16;
+    /** Settings: OK switches TITANE between every fifth pass and its turn with the others. */
+    private static final int TITANE_ROW = 17;
     /** A line that is read, not selected. */
     private static final int NOTE = 14;
     /** The pages over Home: Settings, then Home apps, from there All apps, and from either one app's page. */
@@ -150,8 +152,9 @@ final class InkHome {
     private static final int UNREADABLE = 11;
     private static final long HOUR_MS = 60 * 60_000L;
     private static final String TITANE = "titan-triggerfish";
-    /** TITANE takes one pass in this many. */
+    /** TITANE takes one pass in this many, unless Settings put it in turn with the others (TITANE_OFTEN false). */
     private static final int TITANE_EVERY = 5;
+    private static final String TITANE_OFTEN = "titane_often";
 
     private static final class Item {
         final int kind;
@@ -525,20 +528,26 @@ final class InkHome {
         });
     }
 
-    /** The next animal to pass: every animal with a show in turn, and TITANE one pass in TITANE_EVERY. */
+    /** The next animal to pass: every animal with a show in turn, and TITANE one pass in TITANE_EVERY unless not often. */
     private Animals.Animal next() {
         if (shows == null) return null;
+        boolean often = titaneOften();
         List<Animals.Animal> others = new ArrayList<>();
         Animals.Animal titane = null;
         for (Animals.Animal a : animals) {
             if (!shows.has(a.id)) continue;
-            if (TITANE.equals(a.id)) titane = a;
+            if (often && TITANE.equals(a.id)) titane = a;
             else others.add(a);
         }
         if (passes < 0) passes = activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE).getInt("passes", 0);
         int n = passes++;
-        if (titane != null && (n % TITANE_EVERY == TITANE_EVERY - 1 || others.isEmpty())) return titane;
-        return others.isEmpty() ? null : others.get((n - n / TITANE_EVERY) % others.size());
+        if (titane == null) return others.isEmpty() ? null : others.get(n % others.size());
+        if (n % TITANE_EVERY == TITANE_EVERY - 1 || others.isEmpty()) return titane;
+        return others.get((n - n / TITANE_EVERY) % others.size());
+    }
+
+    private boolean titaneOften() {
+        return activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE).getBoolean(TITANE_OFTEN, true);
     }
 
     private boolean isNight() {
@@ -788,6 +797,8 @@ final class InkHome {
                 title = "SETTINGS";
                 rows.add(new Item(HOME_APPS, "Home apps", null));
                 rows.add(new Item(TV_SETTINGS, "TV settings", null));
+                if (today) rows.add(new Item(TITANE_ROW,
+                        titaneOften() ? "Titane visit frequency: high" : "Titane visit frequency: low", null));
                 if (today && !listening) rows.add(new Item(NOTE, "Now playing is off: see the setup guide", null));
                 break;
             case P_APPS:
@@ -916,6 +927,11 @@ final class InkHome {
                 break;
             case TV_SETTINGS:
                 start(new Intent(Settings.ACTION_SETTINGS));
+                break;
+            case TITANE_ROW:
+                activity.getSharedPreferences("ink_home", Context.MODE_PRIVATE).edit()
+                        .putBoolean(TITANE_OFTEN, !titaneOften()).apply();
+                openPage(P_SETTINGS, row);
                 break;
             case EDIT:
                 if (moving >= 0) {

@@ -32,7 +32,8 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
   are a minute into it, so trailers an app plays by itself do not. OK opens the app, where its own Continue watching
   row carries on.
 - **The animals**: every 30 seconds, at :15 and :45, one of Today's 50 ink animals crosses the whole screen in its
-  own way; the remote keeps working underneath. One pass in five is TITANE (`TITANE_EVERY` in `InkHome.java`).
+  own way; the remote keeps working underneath. One pass in five is TITANE (`TITANE_EVERY` in `InkHome.java`);
+  Settings → `Titane visit frequency: high` switches it to `low`, its turn with the others, and OK switches it back.
 - **Night ink**: light on dark. All day by default (`ink_night_always`), or 19:30 to 07:00. Today has its own switch,
   `night_always`; change both together ([Build settings](#build-settings)).
 

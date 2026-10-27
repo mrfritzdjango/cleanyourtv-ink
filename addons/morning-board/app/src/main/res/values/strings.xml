@@ -24,9 +24,16 @@
     <string name="hint_done">Mark done</string>
     <string name="hint_to_tasks">Tasks</string>
     <string name="hint_to_calendar">Calendar</string>
-    <string name="offline">offline · updated %1$s</string>
+    <string name="note">%1$s · last updated %2$s</string>
+    <string name="why_offline">offline</string>
+    <string name="why_key">key refused</string>
+    <string name="why_script">script error</string>
+    <string name="why_updating">updating</string>
     <string name="loading">Fetching today…</string>
-    <string name="unreachable">Can\'t reach your calendar yet.</string>
+    <string name="unreachable">Can\'t reach Google: no network yet. Trying again every two minutes.</string>
+    <string name="key_refused">The script refused Today\'s key. Check the key in board.properties, then build and install Today again.</string>
+    <string name="script_error">The script answered with an error. Open it on script.google.com, run setup() once and allow access, and check the web app is deployed for Anyone.</string>
+    <string name="tasks_failed">Couldn\'t read Google Tasks just now</string>
     <string name="setup_title">Today needs its address</string>
     <string name="setup_body">Put the Apps Script url and key in board.properties and build again (see the README).</string>
 </resources>

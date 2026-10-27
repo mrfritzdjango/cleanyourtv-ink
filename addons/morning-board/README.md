@@ -15,7 +15,8 @@ any home screen.
   the big clock and your next event. Every 20 seconds it goes out on its own outing, moving the way the real animal
   does, and comes home; a new animal every minute. Left and right on the remote switch animals.
 
-Left and right swap Calendar and Tasks, Back goes Home. Night ink (light on dark) is on all day by default.
+Left and right swap Calendar and Tasks, Back goes Home. A long list scrolls to follow the bar. Night ink (light on dark)
+is on all day by default.
 
 ## 1. The Apps Script (your Google account)
 
@@ -59,8 +60,8 @@ granted only when both APKs carry the same (debug) key.
 After pulling changes, always rebuild and install **both** apps, Today and the launcher. They share the code in
 [`ink/`](../../ink/) (the album cover's size, for one), and a cover written by one version shows blank in the other.
 
-Without a `board.properties` the app still builds: Calendar and Tasks show how to set it up, and the screensaver
-works on its own.
+Without a `board.properties` the app still builds: Calendar and Tasks show how to set it up, the e-ink Home leaves
+their rows out, and the screensaver works on its own.
 
 ## 3. The screensaver
 

@@ -22,6 +22,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import org.json.JSONException;
@@ -29,6 +30,8 @@ import org.json.JSONException;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -48,9 +51,9 @@ public final class BoardActivity extends Activity {
 
     private static final String PREFS = "board";
     private static final float DESIGN_WIDTH = 1920f;
-    /** One list per screen, at most nine rows; the morning board shows five of each. */
-    private static final int MAX_ROWS = 9;
+    /** The morning board shows five of each; Calendar and Tasks show every row, scrolling to follow the bar. */
     private static final int BOARD_ROWS = 5;
+    private static final DateTimeFormatter DAY_TIME = DateTimeFormatter.ofPattern("EEE d MMM H:mm", Locale.ENGLISH);
     private static final int DONE_ROWS = 2;
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -71,10 +74,15 @@ public final class BoardActivity extends Activity {
     private String screen = SCREEN_CALENDAR;
     private Agenda agenda;
     private String agendaBody;
-    private boolean offline;
+    /** Why the last fetch failed (Agenda.NETWORK, KEY, SCRIPT), or Agenda.OK. */
+    private int problem;
     private long updatedMs;
     private int selected;
     private int selectable;
+    /** Calendar's or Tasks' list as it scrolls now, kept across the redraws, and the selected row in it. */
+    private Rows scroll;
+    private int scrollY;
+    private View selectedRow;
     private int paper = Ink.PAPER;
     private int ink = Ink.INK;
     private int muted = Ink.MUTED;
@@ -107,6 +115,7 @@ public final class BoardActivity extends Activity {
         setContentView(root);
         agendaBody = prefs.getString("body", null);
         updatedMs = prefs.getLong("updated", 0);
+        problem = prefs.getInt("problem", Agenda.OK);
         if (agendaBody != null) {
             try {
                 agenda = Agenda.parse(agendaBody);
@@ -152,6 +161,7 @@ public final class BoardActivity extends Activity {
         String s = intent.getStringExtra(EXTRA_SCREEN);
         screen = s != null ? s : SCREEN_CALENDAR;
         selected = 0;
+        scrollY = 0;
         // An exported activity can be started by any app: only the private alias wakes the screen.
         boolean alarm = intent.getComponent() != null && ALARM_ALIAS.equals(intent.getComponent().getClassName());
         if (alarm && intent.getBooleanExtra(EXTRA_ALARM, false)) wakeUp();
@@ -211,27 +221,33 @@ public final class BoardActivity extends Activity {
         io.execute(() -> {
             String body;
             Agenda result;
+            int failure = Agenda.OK;
             try {
                 body = Agenda.get(address);
                 result = Agenda.parse(body);
             } catch (Exception e) {
                 body = null;
                 result = null;
+                failure = Agenda.problem(e);
             }
             String b = body;
             Agenda r = result;
+            int f = failure;
             main.post(() -> {
                 if (isDestroyed()) return;
                 if (r != null) {
                     agenda = r;
                     agendaBody = b;
-                    offline = false;
+                    problem = Agenda.OK;
                     updatedMs = System.currentTimeMillis();
                     Store.save(BoardActivity.this, b);
                     render();
-                } else if (!offline) {
-                    offline = true;
-                    render();
+                } else {
+                    Store.failed(BoardActivity.this, f);   // Home's previews say the same
+                    if (problem != f) {
+                        problem = f;
+                        render();
+                    }
                 }
                 if (resumed) main.postDelayed(tick, r != null ? Agenda.REFRESH_MS : Agenda.RETRY_MS);
             });
@@ -240,6 +256,7 @@ public final class BoardActivity extends Activity {
 
     private void markDone(Agenda.Task task) {
         agenda.markDone(task);
+        selected = Math.max(0, Math.min(selected, agenda.tasks.size() - 1));   // the bar stays on the list
         render();
         String address = address("&action=done&list=" + Agenda.encode(task.list) + "&task=" + Agenda.encode(task.id));
         if (address == null) return;
@@ -269,6 +286,7 @@ public final class BoardActivity extends Activity {
                 if (!SCREEN_BOARD.equals(screen)) {
                     screen = SCREEN_TASKS.equals(screen) ? SCREEN_CALENDAR : SCREEN_TASKS;
                     selected = 0;
+                    scrollY = 0;
                     render();
                 }
                 return true;
@@ -316,6 +334,8 @@ public final class BoardActivity extends Activity {
         page.removeAllViews();
         page.setGravity(Gravity.NO_GRAVITY);
         selectable = 0;
+        scroll = null;
+        selectedRow = null;
         if (address("") == null) setup();
         else if (SCREEN_BOARD.equals(screen)) board();
         else if (SCREEN_TASKS.equals(screen)) tasks();
@@ -343,7 +363,7 @@ public final class BoardActivity extends Activity {
         left.addView(label(getString(R.string.today), ink));
         right.addView(label(getString(R.string.tasks_label), ink));
         if (agenda == null) {
-            add(left, text(getString(offline ? R.string.unreachable : R.string.loading), 42, false, muted), 26);
+            add(left, wrapped(text(statusText(), 42, false, muted)), 26);
         } else {
             int next = agenda.next(System.currentTimeMillis());
             List<Agenda.Event> events = agenda.events;
@@ -352,7 +372,7 @@ public final class BoardActivity extends Activity {
                 Agenda.Event e = events.get(i);
                 LinearLayout r = row();
                 TextView time = text(e.time, 42, i == next, ink);
-                r.addView(time, new LinearLayout.LayoutParams(px(162), ViewGroup.LayoutParams.WRAP_CONTENT));
+                r.addView(time, new LinearLayout.LayoutParams(px(190), ViewGroup.LayoutParams.WRAP_CONTENT));
                 r.addView(text(e.title, 42, i == next, ink), weight());
                 add(left, r, 26);
             }
@@ -361,12 +381,12 @@ public final class BoardActivity extends Activity {
                 for (int i = 0; i < Math.min(agenda.nextDay.size(), BOARD_ROWS - 1); i++) {
                     Agenda.Event e = agenda.nextDay.get(i);
                     LinearLayout r = row();
-                    r.addView(text(e.time, 42, false, ink), new LinearLayout.LayoutParams(px(162), ViewGroup.LayoutParams.WRAP_CONTENT));
+                    r.addView(text(e.time, 42, false, ink), new LinearLayout.LayoutParams(px(190), ViewGroup.LayoutParams.WRAP_CONTENT));
                     r.addView(text(e.title, 42, false, ink), weight());
                     add(left, r, 26);
                 }
             }
-            if (agenda.tasks.isEmpty()) add(right, text(getString(R.string.no_tasks), 42, false, muted), 26);
+            if (agenda.tasks.isEmpty()) add(right, text(getString(agenda.tasksFailed ? R.string.tasks_failed : R.string.no_tasks), 42, false, muted), 26);
             for (int i = 0; i < Math.min(agenda.tasks.size(), BOARD_ROWS); i++) {
                 LinearLayout r = row();
                 r.addView(new Box(this, ink, 3 * scale, false), new LinearLayout.LayoutParams(px(30), px(30)));
@@ -383,7 +403,7 @@ public final class BoardActivity extends Activity {
         spacer(page);
         LinearLayout footer = row();
         key(footer, R.string.key_ok, R.string.hint_home);
-        offlineNote(footer);
+        note(footer);
         page.addView(footer);
     }
 
@@ -394,32 +414,35 @@ public final class BoardActivity extends Activity {
             status();
             return;
         }
-        add(page, padded(label(getString(R.string.today_label, agenda.todayShort.toUpperCase(Locale.ROOT)), ink)), 64);
+        LinearLayout list = scrolling();
+        String day = agenda.todayShort.toUpperCase(Locale.ROOT);
+        // an answer from an earlier day (no network since) goes by its date, not as today's
+        add(list, padded(label(fresh() ? getString(R.string.today_label, day) : day, ink)), 64);
         int next = agenda.next(System.currentTimeMillis());
         int shown = 0;
-        if (agenda.events.isEmpty()) add(page, padded(text(getString(R.string.nothing_today), 44, false, muted)), 16);
-        for (int i = 0; i < agenda.events.size() && shown < MAX_ROWS; i++, shown++) {
-            add(page, eventRow(agenda.events.get(i), shown == selected, i == next, false), 0);
+        if (agenda.events.isEmpty()) add(list, padded(text(getString(R.string.nothing_today), 44, false, muted)), 16);
+        for (int i = 0; i < agenda.events.size(); i++, shown++) {
+            add(list, eventRow(agenda.events.get(i), shown == selected, i == next, false), 0);
         }
         if (agenda.events.isEmpty() && !agenda.nextDay.isEmpty()) {
             // a day with nothing on: the next day that has something, in today's format, in place of tomorrow
-            add(page, padded(label(agenda.nextDayLabel, ink)), 36);
-            for (int i = 0; i < agenda.nextDay.size() && shown < MAX_ROWS; i++, shown++) {
-                add(page, eventRow(agenda.nextDay.get(i), shown == selected, false, false), 0);
+            add(list, padded(label(agenda.nextDayLabel, ink)), 36);
+            for (int i = 0; i < agenda.nextDay.size(); i++, shown++) {
+                add(list, eventRow(agenda.nextDay.get(i), shown == selected, false, false), 0);
             }
-        } else if (!agenda.tomorrow.isEmpty() && shown < MAX_ROWS) {
-            add(page, padded(label(getString(R.string.tomorrow_label, agenda.tomorrowShort.toUpperCase(Locale.ROOT)), ink)), 36);
-            for (int i = 0; i < agenda.tomorrow.size() && shown < MAX_ROWS; i++, shown++) {
-                add(page, eventRow(agenda.tomorrow.get(i), shown == selected, false, true), 0);
+        } else if (!agenda.tomorrow.isEmpty()) {
+            add(list, padded(label(getString(R.string.tomorrow_label, agenda.tomorrowShort.toUpperCase(Locale.ROOT)), ink)), 36);
+            for (int i = 0; i < agenda.tomorrow.size(); i++, shown++) {
+                add(list, eventRow(agenda.tomorrow.get(i), shown == selected, false, true), 0);
             }
         }
         selectable = shown;
-        spacer(page);
+        keepInView();
         LinearLayout footer = padded(row());
         key(footer, R.string.key_back, R.string.hint_home);
         gap(footer, 40);
         key(footer, R.string.key_sides, R.string.hint_to_tasks);
-        offlineNote(footer);
+        note(footer);
         page.addView(footer);
     }
 
@@ -430,14 +453,15 @@ public final class BoardActivity extends Activity {
             status();
             return;
         }
-        add(page, padded(label(getString(R.string.my_tasks), ink)), 64);
+        LinearLayout list = scrolling();
+        add(list, padded(label(getString(R.string.my_tasks), ink)), 64);
         int done = Math.min(agenda.doneToday.size(), DONE_ROWS);
-        int open = Math.min(agenda.tasks.size(), MAX_ROWS - done);
-        if (open == 0) add(page, padded(text(getString(R.string.no_tasks), 44, false, muted)), 16);
-        for (int i = 0; i < open; i++) add(page, taskRow(agenda.tasks.get(i), i == selected), 0);
+        int open = agenda.tasks.size();
+        if (open == 0) add(list, padded(text(getString(agenda.tasksFailed ? R.string.tasks_failed : R.string.no_tasks), 44, false, muted)), 16);
+        for (int i = 0; i < open; i++) add(list, taskRow(agenda.tasks.get(i), i == selected), 0);
         selectable = open;
         if (done > 0) {
-            add(page, padded(label(getString(R.string.done_label), muted)), 36);
+            add(list, padded(label(getString(R.string.done_label), muted)), 36);
             for (int i = 0; i < done; i++) {
                 LinearLayout r = padded(row());
                 r.setPadding(px(24), px(18), px(24), px(18));
@@ -446,10 +470,10 @@ public final class BoardActivity extends Activity {
                 TextView t = text(agenda.doneToday.get(i), 44, false, faded);
                 t.setPaintFlags(t.getPaintFlags() | Paint.STRIKE_THRU_TEXT_FLAG);
                 r.addView(t, weight());
-                page.addView(r);
+                list.addView(r);
             }
         }
-        spacer(page);
+        keepInView();
         LinearLayout footer = padded(row());
         if (open > 0) {
             key(footer, R.string.key_ok, R.string.hint_done);
@@ -458,7 +482,7 @@ public final class BoardActivity extends Activity {
         key(footer, R.string.key_back, R.string.hint_home);
         gap(footer, 40);
         key(footer, R.string.key_sides, R.string.hint_to_calendar);
-        offlineNote(footer);
+        note(footer);
         page.addView(footer);
     }
 
@@ -472,7 +496,71 @@ public final class BoardActivity extends Activity {
     }
 
     private void status() {
-        add(page, padded(text(getString(offline ? R.string.unreachable : R.string.loading), 44, false, muted)), 64);
+        add(page, padded(wrapped(text(statusText(), 44, false, muted))), 64);
+    }
+
+    /** What a screen with no agenda yet says: fetching, or why the fetch failed and what to do about it. */
+    private String statusText() {
+        switch (problem) {
+            case Agenda.NETWORK:
+                return getString(R.string.unreachable);
+            case Agenda.KEY:
+                return getString(R.string.key_refused);
+            case Agenda.SCRIPT:
+                return getString(R.string.script_error);
+            default:
+                return getString(R.string.loading);
+        }
+    }
+
+    /** The answer on screen came today. */
+    private boolean fresh() {
+        return Times.sameDay(updatedMs, System.currentTimeMillis(), ZoneId.systemDefault());
+    }
+
+    /**
+     * Calendar's or Tasks' rows, between the header and the keys: as many as there are, scrolled (at once, never
+     * sliding) just far enough that the selected row shows whole, with half a row past it where there is more.
+     */
+    private LinearLayout scrolling() {
+        Rows s = new Rows();
+        LinearLayout list = column();
+        s.addView(list, new ScrollView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        page.addView(s, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        scroll = s;
+        return list;
+    }
+
+    /** Once the rows are added: the selected one is the one to keep in view. */
+    private void keepInView() {
+        scroll.row = selectedRow;
+    }
+
+    /** Calendar's and Tasks' rows: after each layout, before they are drawn, scrolled to keep the selected row in view. */
+    private final class Rows extends ScrollView {
+        View row;
+
+        Rows() {
+            super(BoardActivity.this);
+            setVerticalScrollBarEnabled(false);
+            setOverScrollMode(View.OVER_SCROLL_NEVER);
+            // the keys are the activity's: a focused ScrollView would take Up and Down for itself
+            setFocusable(false);
+            setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            super.onLayout(changed, l, t, r, b);
+            int y = scrollY;
+            if (row != null) {
+                int more = row.getHeight() / 2;
+                y = Math.min(y, row.getTop() - more);
+                y = Math.max(y, row.getBottom() + more - getHeight());
+            }
+            scrollY = Math.max(0, Math.min(y, getChildAt(0).getHeight() - getHeight()));
+            scrollTo(0, scrollY);
+        }
     }
 
     private void header(String title, String right) {
@@ -487,8 +575,11 @@ public final class BoardActivity extends Activity {
         int fg = isSelected ? paper : tomorrow ? muted : ink;
         LinearLayout r = row();
         r.setPadding(px(24), px(16), px(24), px(16));
-        if (isSelected) r.setBackgroundColor(ink);
-        r.addView(text(e.time, 44, isNext, fg), new LinearLayout.LayoutParams(px(180), ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (isSelected) {
+            r.setBackgroundColor(ink);
+            selectedRow = r;
+        }
+        r.addView(text(e.time, 44, isNext, fg), new LinearLayout.LayoutParams(px(200), ViewGroup.LayoutParams.WRAP_CONTENT));
         r.addView(text(e.title, 44, isNext, fg), weight());
         if (!e.where.isEmpty()) r.addView(text(e.where, 28, false, isSelected ? paper : muted));
         return r;
@@ -498,7 +589,10 @@ public final class BoardActivity extends Activity {
         int fg = isSelected ? paper : ink;
         LinearLayout r = row();
         r.setPadding(px(24), px(18), px(24), px(18));
-        if (isSelected) r.setBackgroundColor(ink);
+        if (isSelected) {
+            r.setBackgroundColor(ink);
+            selectedRow = r;
+        }
         r.addView(new Box(this, fg, 3 * scale, false), new LinearLayout.LayoutParams(px(32), px(32)));
         gap(r, 32);
         r.addView(text(t.title, 44, false, fg), weight());
@@ -509,15 +603,22 @@ public final class BoardActivity extends Activity {
         return r;
     }
 
-    private void offlineNote(LinearLayout footer) {
-        if (!offline || updatedMs == 0) return;
-        LocalTime at = Instant.ofEpochMilli(updatedMs).atZone(ZoneId.systemDefault()).toLocalTime();
+    /**
+     * Beside the keys, when the lists may be out of date: why (offline, the key refused, a script error, or only being
+     * fetched again), and when they were last fetched, with the day when that was not today.
+     */
+    private void note(LinearLayout footer) {
+        if (updatedMs == 0 || problem == Agenda.OK && fresh()) return;
+        ZonedDateTime at = Instant.ofEpochMilli(updatedMs).atZone(ZoneId.systemDefault());
+        String when = fresh() ? Times.clock(at.toLocalTime()) : DAY_TIME.format(at);
+        int why = problem == Agenda.NETWORK ? R.string.why_offline : problem == Agenda.KEY ? R.string.why_key
+                : problem == Agenda.SCRIPT ? R.string.why_script : R.string.why_updating;
         gap(footer, 40);
-        footer.addView(text(getString(R.string.offline, Times.clock(at)), 26, false, muted));
+        footer.addView(text(getString(R.string.note, getString(why), when), 26, false, muted));
     }
 
     private void key(LinearLayout footer, int keyRes, int labelRes) {
-        TextView chip = text(getString(keyRes), 20, true, muted);
+        TextView chip = text(getString(keyRes), 24, true, muted);
         GradientDrawable box = new GradientDrawable();
         box.setStroke(Math.max(1, px(2)), muted);
         chip.setBackground(box);
@@ -542,6 +643,13 @@ public final class BoardActivity extends Activity {
         t.setIncludeFontPadding(false);
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
+        return t;
+    }
+
+    /** A message that may take more than one line. */
+    private static TextView wrapped(TextView t) {
+        t.setSingleLine(false);
+        t.setMaxLines(4);
         return t;
     }
 

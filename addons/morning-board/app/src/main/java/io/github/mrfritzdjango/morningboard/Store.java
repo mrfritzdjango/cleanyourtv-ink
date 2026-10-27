@@ -22,7 +22,16 @@ final class Store {
 
     /** Keeps an answer and tells the launcher's Home it changed. */
     static void save(Context context, String body) {
-        prefs(context).edit().putString("body", body).putLong("updated", System.currentTimeMillis()).apply();
+        prefs(context).edit().putString("body", body).putLong("updated", System.currentTimeMillis())
+                .putInt("problem", Agenda.OK).apply();
+        context.getContentResolver().notifyChange(AgendaProvider.URI, null);
+    }
+
+    /** Keeps why the last fetch failed (Agenda.NETWORK, KEY or SCRIPT) for Home's previews; written only when it changes. */
+    static void failed(Context context, int problem) {
+        SharedPreferences p = prefs(context);
+        if (p.getInt("problem", Agenda.OK) == problem) return;
+        p.edit().putInt("problem", problem).apply();
         context.getContentResolver().notifyChange(AgendaProvider.URI, null);
     }
 
@@ -36,6 +45,7 @@ final class Store {
             save(context, body);
             return true;
         } catch (Exception e) {
+            failed(context, Agenda.problem(e));
             return false;
         }
     }

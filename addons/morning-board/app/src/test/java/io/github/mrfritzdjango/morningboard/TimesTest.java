@@ -36,6 +36,12 @@ public class TimesTest {
     }
 
     @Test
+    public void sameDayFollowsTheZonesMidnight() {
+        assertTrue(Times.sameDay(at(2026, 10, 27, 0, 0), at(2026, 10, 27, 23, 59), KL));
+        assertFalse(Times.sameDay(at(2026, 10, 26, 23, 59), at(2026, 10, 27, 0, 0), KL));
+    }
+
+    @Test
     public void clockHasNoLeadingZero() {
         assertEquals("7:00", Times.clock(LocalTime.of(7, 0)));
         assertEquals("19:05", Times.clock(LocalTime.of(19, 5)));

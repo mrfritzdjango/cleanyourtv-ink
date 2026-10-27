@@ -4,7 +4,8 @@
 // 2. Run setup() once and allow access to Calendar and Tasks. The log shows the key the TV needs.
 // 3. Deploy > New deployment > Web app: Execute as Me, Who has access: Anyone. Copy the /exec URL.
 //
-// Anyone with the URL and the key can read today's agenda, so keep both private, like a secret calendar link.
+// Anyone with the URL and the key can read today's agenda and tick its tasks off (OK on a task in Today does that),
+// so keep both private, like a secret calendar link.
 
 function setup() {
   const props = PropertiesService.getScriptProperties();
@@ -28,9 +29,28 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   const key = key_();
   if (!key || p.key !== key) return json_({ ok: false, error: 'key' });
-  if (p.action === 'done') return json_(markDone_(p.list, p.task));
-  return json_(agenda_());
+  try {
+    if (p.action === 'done') return json_(markDone_(p.list, p.task));
+    return json_(agenda_());
+  } catch (err) {
+    // Uncaught, this would reach the TV as an HTML error page; as JSON, Today can say the script needs looking at
+    // (authorisation expired or revoked, a quota).
+    return json_({ ok: false, error: 'script', message: String(err).slice(0, 200) });
+  }
 }
+
+// One part that fails (a Tasks quota, a list deleted meanwhile) leaves the rest of the day; fallback in its place.
+function tryOr_(part, fallback) {
+  try {
+    return part();
+  } catch (err) {
+    console.warn(err);
+    return fallback;
+  }
+}
+
+// The TV shows a screenful; past this many open tasks the answer only grows.
+const MAX_TASKS = 50;
 
 function agenda_() {
   // Your Google Calendar's own time zone (Calendar settings), so nothing here needs setting per person.
@@ -41,6 +61,9 @@ function agenda_() {
   const after0 = nextDayStart_(tomorrow0, tz);
   const day = (d) => Utilities.formatDate(d, tz, 'yyyy-MM-dd');
   const events = events_(today0, tomorrow0, tz);
+  const lists = tryOr_(lists_, null);
+  const tasks = lists && tryOr_(() => openTasks_(lists, day(now), day(tomorrow0)), null);
+  const done = lists && tryOr_(() => doneTasks_(lists, today0), null);
   return {
     ok: true,
     timeZone: tz,
@@ -50,9 +73,11 @@ function agenda_() {
     tomorrowShort: Utilities.formatDate(tomorrow0, tz, 'EEE d MMM'),
     events: events,
     tomorrow: events_(tomorrow0, after0, tz),
-    nextDay: events.length ? null : nextDay_(tomorrow0, tz),
-    tasks: openTasks_(day(now), day(tomorrow0)),
-    doneToday: doneTasks_(today0)
+    nextDay: events.length ? null : tryOr_(() => nextDay_(tomorrow0, tz), null),
+    tasks: (tasks || []).slice(0, MAX_TASKS),
+    doneToday: done || [],
+    // Tasks could not be read this time: the TV says so rather than "No open tasks"
+    tasksFailed: !tasks || !done
   };
 }
 
@@ -68,13 +93,20 @@ function events_(from, to, tz) {
       if (seen[id]) return;   // the same event on two calendars
       seen[id] = true;
       const allDay = ev.isAllDayEvent();
+      const end = ev.getEndTime();
+      // A timed event that began on an earlier day (a conference, a night flight): until when it runs this day, or all
+      // of it. It is never this day's "next".
+      const carried = !allDay && start < from;
       out.push({
         title: ev.getTitle() || '(no title)',
         where: (ev.getLocation() || '').split(',')[0].slice(0, 32),
         allDay: allDay,
-        time: allDay ? 'All day' : Utilities.formatDate(start, tz, 'H:mm'),
+        carried: carried,
+        time: allDay ? 'All day'
+          : carried ? (end < to ? '–' + Utilities.formatDate(end, tz, 'H:mm') : 'All day')
+            : Utilities.formatDate(start, tz, 'H:mm'),
         startMs: start.getTime(),
-        endMs: ev.getEndTime().getTime()
+        endMs: end.getTime()
       });
     }));
   out.sort((a, b) => (b.allDay - a.allDay) || (a.startMs - b.startMs));
@@ -107,9 +139,9 @@ function nextDay_(tomorrow0, tz) {
   };
 }
 
-function openTasks_(today, tomorrow) {
+function openTasks_(lists, today, tomorrow) {
   const out = [];
-  lists_().forEach((list) => {
+  lists.forEach((list) => {
     taskItems_(list.id, { showCompleted: false }).forEach((t) => {
       if (!t.title) return;
       const due = t.due ? t.due.slice(0, 10) : '';
@@ -121,9 +153,9 @@ function openTasks_(today, tomorrow) {
   return out;
 }
 
-function doneTasks_(today0) {
+function doneTasks_(lists, today0) {
   const out = [];
-  lists_().forEach((list) => {
+  lists.forEach((list) => {
     taskItems_(list.id, { showCompleted: true, showHidden: true, completedMin: today0.toISOString() })
       .forEach((t) => { if (t.status === 'completed' && t.title) out.push({ title: t.title }); });
   });

@@ -20,8 +20,9 @@ android {
         targetSdk 34
         versionCode 1
         versionName '1.0'
-        buildConfigField 'String', 'BOARD_URL', "\"${board.getProperty('url', '')}\""
-        buildConfigField 'String', 'BOARD_KEY', "\"${board.getProperty('key', '')}\""
+        // trimmed: a space left after key= would otherwise become part of the key, and every fetch be refused
+        buildConfigField 'String', 'BOARD_URL', "\"${board.getProperty('url', '').trim()}\""
+        buildConfigField 'String', 'BOARD_KEY', "\"${board.getProperty('key', '').trim()}\""
     }
 
     buildFeatures {

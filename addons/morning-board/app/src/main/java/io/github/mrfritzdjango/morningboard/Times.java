@@ -34,6 +34,11 @@ final class Times {
         }
     }
 
+    /** Whether the two instants fall on the same day in zone. */
+    static boolean sameDay(long aMs, long bMs, ZoneId zone) {
+        return Instant.ofEpochMilli(aMs).atZone(zone).toLocalDate().equals(Instant.ofEpochMilli(bMs).atZone(zone).toLocalDate());
+    }
+
     /** "7:00", the hour without a leading zero, as every clock in the design. */
     static String clock(LocalTime t) {
         return t.getHour() + (t.getMinute() < 10 ? ":0" : ":") + t.getMinute();

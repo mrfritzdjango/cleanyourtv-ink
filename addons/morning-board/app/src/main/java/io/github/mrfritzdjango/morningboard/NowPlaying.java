@@ -3,6 +3,7 @@ package io.github.mrfritzdjango.morningboard;
 import io.github.mrfritzdjango.ink.Playing;
 import io.github.mrfritzdjango.ink.Watched;
 
+import android.app.NotificationManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -13,6 +14,7 @@ import android.media.session.MediaController;
 import android.media.session.MediaSessionManager;
 import android.media.session.PlaybackState;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -40,6 +42,8 @@ public final class NowPlaying extends NotificationListenerService {
     /** The last song, null when nothing is playing; read by the provider (a binder thread) and the screensaver. */
     private static volatile Playing current;
     private static volatile MediaController followed;
+    /** Android has the listener bound: how API 26, which cannot ask, tells it was allowed. */
+    private static volatile boolean connected;
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final MediaSessionManager.OnActiveSessionsChangedListener changed = this::follow;
@@ -82,14 +86,30 @@ public final class NowPlaying extends NotificationListenerService {
     private MediaController watching;
     private MediaMetadata watchMeta;
     private PlaybackState watchState;
-    private Bitmap frameOf;
+    /**
+     * The pictures in shades of grey, with what they were made from (pictureKey): every callback hands over a new Bitmap
+     * through binder, so the picture itself cannot tell whether it changed, and greying it each time is wasted work.
+     */
+    private String frameKey;
     private byte[] frame;
-    private Bitmap coverOf;
+    private String coverKey;
     private byte[] cover;
     private long pausedAt;
+    /** The last show written to prefs, and when: a write for a new one, then at most one a minute. */
+    private String writtenKey;
+    private long writtenAt;
 
     static Playing current() {
         return current;
+    }
+
+    /** Whether the owner allowed the listener (cmd notification allow_listener …), without which no song is ever seen. */
+    static boolean allowed(Context context) {
+        if (Build.VERSION.SDK_INT >= 27) {
+            return context.getSystemService(NotificationManager.class)
+                    .isNotificationListenerAccessGranted(new ComponentName(context, NowPlaying.class));
+        }
+        return connected;
     }
 
     /** Home's hold-OK on the Spotify row (TransportReceiver): pause what plays, or play what is paused. */
@@ -113,6 +133,7 @@ public final class NowPlaying extends NotificationListenerService {
 
     @Override
     public void onListenerConnected() {
+        connected = true;
         sessions = getSystemService(MediaSessionManager.class);
         try {
             sessions.addOnActiveSessionsChangedListener(changed, me(), main);
@@ -124,6 +145,7 @@ public final class NowPlaying extends NotificationListenerService {
 
     @Override
     public void onListenerDisconnected() {
+        connected = false;
         if (sessions != null) sessions.removeOnActiveSessionsChangedListener(changed);
         follow(Collections.emptyList());
     }
@@ -196,10 +218,11 @@ public final class NowPlaying extends NotificationListenerService {
         // stopped, idle (NONE: Spotify keeps its last song after it stops) or an error: nothing to show
         if (title != null && (on || s != null && s.getState() == PlaybackState.STATE_PAUSED)) {
             if (on) pausedAt = 0;
-            else if (pausedAt == 0) pausedAt = System.currentTimeMillis();
+            else if (pausedAt == 0) pausedAt = pausedSince(s);
             Bitmap art = art(m);
-            if (art != coverOf) {   // a new picture: often a moment after the song's title
-                coverOf = art;
+            String key = pictureKey(m, art);
+            if (!key.equals(coverKey)) {   // a new picture: often a moment after the song's title
+                coverKey = key;
                 cover = grey(art, Playing.COVER, Playing.COVER);
             }
             p = new Playing(title,
@@ -255,19 +278,26 @@ public final class NowPlaying extends NotificationListenerService {
         long at = s.getPosition();
         if (state == PlaybackState.STATE_PLAYING) at += (long) ((SystemClock.elapsedRealtime() - s.getLastPositionUpdateTime()) * s.getPlaybackSpeed());
         if (at < WATCHED_AFTER_MS) return;
+        String pkg = c.getPackageName();
+        String episode = first(m, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ARTIST,
+                MediaMetadata.METADATA_KEY_ALBUM);
         Bitmap art = art(m);
-        if (art != frameOf) {
-            frameOf = art;
+        String key = pkg + "\n" + pictureKey(m, art);
+        long now = System.currentTimeMillis();
+        // every playback callback lands here: the whole prefs file is written for a new show, then once a minute
+        if (key.equals(writtenKey) && now - writtenAt < 60_000) return;
+        writtenKey = key;
+        writtenAt = now;
+        if (!key.equals(frameKey)) {
+            frameKey = key;
             frame = grey(art, Watched.FRAME_W, Watched.FRAME_H);
         }
-        String pkg = c.getPackageName();
         String k = "watched." + pkg + ".";
         Store.prefs(this).edit()
                 .putString(k + "title", title)
-                .putString(k + "episode", first(m, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ARTIST,
-                        MediaMetadata.METADATA_KEY_ALBUM))
+                .putString(k + "episode", episode)
                 .putString(k + "app", label(pkg))
-                .putLong(k + "at", System.currentTimeMillis())
+                .putLong(k + "at", now)
                 .putString(k + "frame", frame == null ? null : Base64.encodeToString(frame, Base64.NO_WRAP))
                 .apply();
         getContentResolver().notifyChange(WATCHED_URI, null);
@@ -288,6 +318,25 @@ public final class NowPlaying extends NotificationListenerService {
             if (v != null && v.length() > 0) return v.toString();
         }
         return null;
+    }
+
+    /** What a picture was made from: the song and the picture's size, which is all a callback can compare cheaply. */
+    private static String pictureKey(MediaMetadata m, Bitmap art) {
+        String[] keys = {MediaMetadata.METADATA_KEY_TITLE, MediaMetadata.METADATA_KEY_DISPLAY_TITLE, MediaMetadata.METADATA_KEY_ARTIST,
+                MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ALBUM};
+        StringBuilder b = new StringBuilder();
+        for (String k : keys) b.append(m == null ? null : m.getText(k)).append('\n');
+        return b.append(art == null ? "no picture" : art.getWidth() + "x" + art.getHeight()).toString();
+    }
+
+    /**
+     * When the session was paused, on the wall clock: its last position update, which stops with the playback. Seen only
+     * now (Today restarted, the listener bound again), a song paused long ago is not shown for another ten minutes.
+     */
+    private static long pausedSince(PlaybackState s) {
+        long now = System.currentTimeMillis();
+        if (s == null || s.getLastPositionUpdateTime() <= 0) return now;
+        return Math.min(now, now - (SystemClock.elapsedRealtime() - s.getLastPositionUpdateTime()));
     }
 
     private static Bitmap art(MediaMetadata m) {

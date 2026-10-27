@@ -127,7 +127,11 @@ Google account for the TV, share everyone's calendars with it, and deploy the sc
 | What you see | What it means, and what to do |
 |---|---|
 | The TV says **Today needs its address** | Today was built without `board.properties`. Fill it in and rebuild Today. |
-| The TV says **Can't reach your calendar yet** | The TV got no agenda. Try the address from step 4 in a browser. If that works, check the TV is online and that `board.properties` has the same URL and key, then rebuild. |
+| The TV says **Can't reach Google: no network yet** (Home: "No connection yet") | The TV got no answer. Check the TV is online; it tries again every minute or two. Try the address from step 4 in a browser too. |
+| The TV says **The script refused Today's key** | The key built into Today doesn't match the script's. Run **setup** to see the right one, put it in `board.properties` (all 32 characters, nothing after them), rebuild and install Today. |
+| The TV says **The script answered with an error** | The script couldn't run: its authorisation expired or was removed, or a Google quota. Open it, run **setup** and allow it, and check the deployment is for **Anyone**. Try the address from step 4 in a browser to see the error. |
+| Home says **Today is signed with another key** | Today and the launcher were built on different computers or accounts. Build both on the same one and install both again. |
+| The Tasks screen says **Couldn't read Google Tasks** | The script read your calendar but Tasks failed this time (a quota, a list deleted). It tries again on the next fetch. |
 | The browser shows a Google sign-in page or "Sorry, unable to open the file" | The deployment isn't open to **Anyone**. Manage deployments › the pencil › Who has access: Anyone. |
 | `{"ok":false,"error":"key"}` | The key in the address doesn't match. Run **setup** to see the right one; copy all 32 characters. |
 | `Authorization is required` or `Exception: …` in the browser | The script changed since you allowed it. Run **setup** again and allow it, then make a new version (above). |
@@ -138,7 +142,7 @@ Google account for the TV, share everyone's calendars with it, and deploy the sc
 
 ## For the curious
 
-The whole script is about 170 lines: [`Code.gs`](../addons/morning-board/apps-script/Code.gs). It uses Google's
+The whole script is about 200 lines: [`Code.gs`](../addons/morning-board/apps-script/Code.gs). It uses Google's
 built-in `CalendarApp` (with the read-only calendar scope) and the Tasks API (with the full tasks scope, the only
 one that can mark a task done; so anyone with the URL and the key could tick your tasks off too), both free for
 personal use, and reaches

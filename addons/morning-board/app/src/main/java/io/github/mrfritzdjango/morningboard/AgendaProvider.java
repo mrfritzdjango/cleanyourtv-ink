@@ -9,11 +9,13 @@ import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.net.Uri;
+import android.os.Bundle;
 
 /**
  * The last agenda, read-only, for the launcher's e-ink Home (its Calendar and Tasks previews; Home has no network), and
  * at .../now the song playing and at .../watched the last show watched in each streaming app (NowPlaying). Guarded by a signature permission, so only an app signed with the same key
- * can read it.
+ * can read it. .../today is always one row: the answer (null before the first), when it came, why the last fetch failed
+ * (Agenda.OK, NETWORK, KEY or SCRIPT) and whether the script is set up at all, so Home can say which.
  */
 public final class AgendaProvider extends ContentProvider {
     static final String AUTHORITY = "io.github.mrfritzdjango.morningboard.agenda";
@@ -31,6 +33,10 @@ public final class AgendaProvider extends ContentProvider {
             MatrixCursor now = new MatrixCursor(Playing.COLUMNS);
             Playing p = NowPlaying.current();
             if (p != null) now.addRow(p.row());
+            // without the listener allowed there is never a song: Home's Settings page says so
+            Bundle extras = new Bundle();
+            extras.putBoolean("listening", NowPlaying.allowed(getContext()));
+            now.setExtras(extras);
             now.setNotificationUri(getContext().getContentResolver(), NowPlaying.URI);
             return now;
         }
@@ -40,10 +46,10 @@ public final class AgendaProvider extends ContentProvider {
             watched.setNotificationUri(getContext().getContentResolver(), NowPlaying.WATCHED_URI);
             return watched;
         }
-        MatrixCursor cursor = new MatrixCursor(new String[] {"body", "updated"});
+        MatrixCursor cursor = new MatrixCursor(new String[] {"body", "updated", "problem", "configured"});
         SharedPreferences prefs = Store.prefs(getContext());
-        String body = prefs.getString("body", null);
-        if (body != null) cursor.addRow(new Object[] {body, prefs.getLong("updated", 0)});
+        cursor.addRow(new Object[] {prefs.getString("body", null), prefs.getLong("updated", 0),
+                prefs.getInt("problem", Agenda.OK), Store.address("") != null ? 1 : 0});
         cursor.setNotificationUri(getContext().getContentResolver(), URI);
         return cursor;
     }

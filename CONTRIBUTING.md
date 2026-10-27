@@ -74,8 +74,10 @@ each, so change it once.
 usually belongs in the prompt as one extra sentence, not in a script. Keep it brand-neutral; put
 brand-specific knowledge in `examples/`.
 
-`tools/tv.py` and `tools/b64push.py` exist because the stock `adb` is blocked on recent macOS. If
-you find a cleaner workaround, open an issue first.
+`tools/tv.py` and `tools/b64push.py` talk to a TV with Network debugging on port 5555 without the
+stock `adb` binary, so the scripts work wherever Python does. They can't pair: Wireless debugging (Google TV 12 and
+later, Chromecast with Google TV) needs the stock `adb` from Android SDK platform-tools, `adb pair` and then
+`adb connect`, as [`INK-PROMPT.md`](INK-PROMPT.md) describes. If you find a cleaner way, open an issue first.
 
 ## Pull requests
 

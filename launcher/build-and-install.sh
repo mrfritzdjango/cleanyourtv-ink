@@ -110,6 +110,14 @@ case "$OUT" in
     echo "ERROR: pm install refused the APK as too new for this set (INSTALL_FAILED_OLDER_SDK): the TV runs an older SDK than the launcher's minSdk ${MIN_SDK:-in app/build.gradle}." >&2
     echo "The stock launcher was left untouched. Read both numbers and see docs/TROUBLESHOOTING.md." >&2
     exit 1 ;;
+  *INSTALL_FAILED_UPDATE_INCOMPATIBLE*|*INSTALL_FAILED_VERSION_DOWNGRADE*)
+    # A com.gathin.tvhome is already on the TV that this build cannot replace: signed with another key
+    # (built on another computer or account), or another build with a higher versionCode (upstream's
+    # launcher, from the phone app, say). Android will not update over either.
+    echo "ERROR: pm install refused the APK: a com.gathin.tvhome signed with another key, or a build with a higher versionCode, is already installed." >&2
+    echo "The stock launcher was left untouched. Make the stock launcher Home again (cmd package set-home-activity --user 0 <its component>)," >&2
+    echo "uninstall the existing com.gathin.tvhome (Home, in the TV's Settings > Apps), then run this script again." >&2
+    exit 1 ;;
   *) echo "ERROR: pm install failed; the stock launcher was left untouched." >&2; exit 1 ;;
 esac
 # Replacing the launcher while it is Home lets Android restart it mid-update, and on a TCL G03

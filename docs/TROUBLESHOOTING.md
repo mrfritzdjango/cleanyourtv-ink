@@ -629,6 +629,8 @@ something the launcher can grow into — it is a script and a supervisor on the 
 (`kirkwood`, Google TV 14, `UTTK.260317.003`) that was the one way to have both: `HomeKeyService` alone,
 `InputKeyService` alone and both together each stopped the ramp after roughly six steps, and it came back
 the moment the service was unbound ([#796](https://github.com/Gathin23/cleanyourtv/issues/796)).
+`InputKeyService` was upstream's second helper, for app and settings buttons; this edition's launcher has only
+`HomeKeyService`, which takes `KEYCODE_ALL_APPS` (a Home button that sends it) and nothing else.
 
 The Streamer's remote appears as `Google TV Remote Keyboard`, and these are the buttons it sends:
 
@@ -666,9 +668,9 @@ TCL 55P71B Pro (`G09`, Google TV 12, `STT2.230203.001.AS23`) it was all or nothi
 alone, `InputKeyService` alone and both together all broke it, with `settings put secure
 enabled_accessibility_services ''` plus `accessibility_enabled 0` restoring it. The dumps show
 `capabilities=8` (`CAPABILITY_CAN_FILTER_KEY_EVENTS`), so the platform routes every key through a filter
-path that drops the repeats, before an app sees them; the launcher's own helpers return `false` for keys
+path that drops the repeats, before an app sees them; the launcher's helpers return `false` for keys
 they do not map, so they are not consuming the volume key. The same was reported on a Xiaomi MiTV-MOSR4
-(`irobot`, Android 11, `RTM5.220609.003.1265`) with the launcher's own helpers, both and `InputKeyService`
+(`irobot`, Android 11, `RTM5.220609.003.1265`) with upstream's launcher helpers, both and `InputKeyService`
 alone (#944), where the empty list was not tried because it also unhooks the buttons the helpers were
 installed for. An onn 4K Streaming Box (`YOC`, Google TV 14, `URO4.260304.011.B1.15051976`) does the same with
 `HomeKeyService` alone. A Hisense 75U75N (`hengshan`,
@@ -683,7 +685,11 @@ tools/tv.py 'settings get secure accessibility_enabled'
 tools/tv.py 'dumpsys accessibility'
 ```
 
-This is a trade, not a defect to fix: the buttons the helpers exist for (a gear button sending
+These reports come from upstream's launcher, whose second helper, `InputKeyService`, took the gear and app
+buttons. This edition's launcher has only `HomeKeyService` (`KEYCODE_ALL_APPS` to Home, nothing else), and the
+onn and Hisense reports show it alone is enough to lose the repeat.
+
+This is a trade, not a defect to fix: the buttons upstream's helpers exist for (a gear button sending
 `KEYCODE_NOTIFICATION` 83, app buttons sending vendor keycodes such as 4062) were answered by the stock
 home, so on a set whose list disabled launcherx only a helper can answer them. Either keep the repeat and
 install without `HOME_KEY_SERVICE=1`, or keep the Home button and accept one step per press, or leave

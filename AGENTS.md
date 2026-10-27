@@ -67,7 +67,7 @@ share their TV's list afterwards, follow [`docs/workflows/tv-list.md`](docs/work
 | `PROMPT.md` | The debloat-and-launcher prompt people paste into their agent. Brand-neutral; safety rules live here. |
 | `INK-PROMPT.md` | The Ink edition's setup prompt: Today, the screensaver, now playing, and how to undo each. |
 | `launcher/` | The e-ink Home, package `com.gathin.tvhome`: four classes (MainActivity, InkHome, InkApps, HomeKeyService), plain Java, no libraries, `minSdk` 26, no `INTERNET` permission. |
-| `ink/` | Code compiled into both apps: the animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing views (`Playing`, `Watched`, `CoverView`, `SongBlock`, `PlayingBars`). |
+| `ink/` | Code compiled into both apps: the animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing views (`Playing`, `Watched`, `CoverView`, `SongBlock`, `SongBird`). |
 | `addons/morning-board/` | Today: Calendar, Tasks, the morning board, now playing, last watched and the animal screensaver. Its `apps-script/` runs in the owner's Google account; `art/` builds the drawings and `motion/` the shows. |
 | `examples/` | One folder per tested TV model: `debloat.txt`, `tv.json` (its row in the TV tables), sometimes a `README.md`. Indexed in `examples/README.md`, whose table is generated too. |
 | `docs/` | `ink-home.md`, `google-calendar-tasks.md`, `TROUBLESHOOTING.md`, `REMOTE.md`, `docs/devices/` for models with notes but no tested list, and the [workflows](#workflows). |
@@ -123,7 +123,9 @@ Never do these in a PR:
 - **No secrets or identifiers** in commits, lists or screenshots: no IP addresses, Wi-Fi names, account emails,
   serial numbers, Android IDs, MAC addresses, ADB keys, Apps Script URLs or keys, calendar events or songs. Use
   `<tv ip>` or `192.168.1.50` in docs. `addons/morning-board/board.properties` is git-ignored: keep it that way.
-- **The Apps Script asks for no more than it needs:** read-only Calendar and Tasks (`appsscript.json` `oauthScopes`).
+- **The Apps Script asks for no more than it needs:** read-only Calendar (`calendar.readonly`) and Tasks
+  (`tasks`, which can change tasks, because OK on a task in Today ticks it off), and nothing else
+  (`appsscript.json` `oauthScopes`).
 - **No root, no getting around app-store protection, no private builds** others cannot reproduce from this repo.
 - **Don't relax `minSdk`** (26) or the launcher's permissions.
 - **Security problems are reported privately**, as [SECURITY.md](SECURITY.md) describes, never in a public issue.

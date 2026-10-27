@@ -29,7 +29,8 @@ TV with today's agenda as JSON. Nothing else sees your data.
    over the default file.
 2. **Project Settings** › tick **Show "appsscript.json" manifest file**, then paste
    [`apps-script/appsscript.json`](apps-script/appsscript.json) into it. It turns on the Tasks service and limits the
-   script to reading your calendars and your tasks. The time zone follows your Google Calendar's.
+   script to reading your calendars and to your tasks (it needs to change those, so OK on the TV can tick one off).
+   The time zone follows your Google Calendar's.
 3. Choose **setup** in the function list and **Run**. Allow it (Google warns the app is unverified: it is yours;
    **Advanced › Go to project**). The log shows `key=…` and today's agenda.
 4. **Deploy › New deployment › Web app**: Execute as **Me**, Who has access: **Anyone**. Copy the URL ending in
@@ -40,16 +41,23 @@ Anyone with the URL **and** the key can read today's agenda and tick off your ta
 ## 2. Build and install
 
 Copy `board.properties.example` to `board.properties` (git ignores it) and fill in the URL and the key. Then, with
-JDK 17 and Android SDK platform 34, as for the launcher:
+JDK 17 and Android SDK platform 34 / build-tools 34.0.0, as for the launcher (Gradle needs JDK 17 exactly; on macOS
+`export JAVA_HOME=$(/usr/libexec/java_home -v 17)` first, on Linux point `JAVA_HOME` at the JDK 17 folder):
 
 ```bash
 cd addons/morning-board && ./gradlew assembleRelease
-TV_HOST=<tv ip> ../../tools/venv/bin/python -I ../../tools/tv.py --push app/build/outputs/apk/release/app-release.apk /data/local/tmp/today.apk
+TV_HOST=<tv ip> ../../tools/venv/bin/python -I ../../tools/b64push.py app/build/outputs/apk/release/app-release.apk /data/local/tmp/today.apk
 TV_HOST=<tv ip> ../../tools/venv/bin/python -I ../../tools/tv.py 'pm install -r /data/local/tmp/today.apk; rm -f /data/local/tmp/today.apk'
 ```
 
+The APK is about 5 MB, so it goes over with `b64push.py`; `tv.py --push` is for small files. With the stock `adb`
+(Wireless debugging), `adb install -r app/build/outputs/apk/release/app-release.apk` does both lines.
+
 Build the launcher on the **same computer**: the e-ink Home reads Today's agenda through a signature permission,
 granted only when both APKs carry the same (debug) key.
+
+After pulling changes, always rebuild and install **both** apps, Today and the launcher. They share the code in
+[`ink/`](../../ink/) (the album cover's size, for one), and a cover written by one version shows blank in the other.
 
 Without a `board.properties` the app still builds: Calendar and Tasks show how to set it up, and the screensaver
 works on its own.
@@ -104,7 +112,7 @@ Set in `app/src/main/res/values/options.xml` before building.
 
 | Option | Default | What it does |
 |---|---|---|
-| `night_always` | `true` | Night ink on every screen all day. `false` uses `night_start`…`night_end` instead. |
+| `night_always` | `true` | Night ink on every screen all day. `false` uses `night_start`…`night_end` instead. Change the launcher's `ink_night_always` (`launcher/app/src/main/res/values/config.xml`) with it, so Home and Today match. |
 | `night_start`, `night_end` | `19:30`, `07:00` | Night ink between these times when `night_always` is `false` (the morning board stays on paper). |
 | `wake_hour`, `wake_minute` | `-1`, `0` | When the morning board opens by itself, on the TV's clock. `-1` is off. |
 | `board_until_hour` | `9` | The morning board keeps the screen on until then, then goes back to Home. |

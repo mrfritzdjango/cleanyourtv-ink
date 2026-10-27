@@ -34,7 +34,8 @@ a small script runs **in your own Google account**, reads today's events and you
 4. **Project Settings** (the gear in the left column) › tick **Show "appsscript.json" manifest file in editor**.
    Back in the editor, open `appsscript.json`, replace everything in it with
    [`apps-script/appsscript.json`](../addons/morning-board/apps-script/appsscript.json), and save. This file turns on
-   Google Tasks for the script and limits what it may ask for: your calendars **read-only**, and your tasks.
+   Google Tasks for the script and limits what it may ask for: your calendars **read-only**, and your tasks with the
+   right to change them, which OK on the TV needs to tick one off.
 
 The time zone comes from your Google Calendar (Calendar › Settings › General › Time zone), so there is nothing to
 set for it here.
@@ -138,7 +139,9 @@ Google account for the TV, share everyone's calendars with it, and deploy the sc
 ## For the curious
 
 The whole script is about 170 lines: [`Code.gs`](../addons/morning-board/apps-script/Code.gs). It uses Google's
-built-in `CalendarApp` (with the read-only calendar scope) and the Tasks API, both free for personal use, and reaches
+built-in `CalendarApp` (with the read-only calendar scope) and the Tasks API (with the full tasks scope, the only
+one that can mark a task done; so anyone with the URL and the key could tick your tasks off too), both free for
+personal use, and reaches
 nothing else: no Gmail, no Drive, no outside address; the TV's few requests a day are far inside
 Google's daily limits. You can also push it from the command line with
 [clasp](https://github.com/google/clasp) (`clasp push`, then `clasp deploy -i <deployment id>` to keep the URL).

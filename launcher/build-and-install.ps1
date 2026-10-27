@@ -59,6 +59,11 @@ $apk = 'app\build\outputs\apk\release\app-release.apk'
 if ($LASTEXITCODE -ne 0) { throw 'APK upload failed' }
 $out = & $py -I ..\tools\tv.py 'pm install -r /data/local/tmp/tvhome.apk; rm -f /data/local/tmp/tvhome.apk'
 Write-Host $out
+if ("$out" -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|INSTALL_FAILED_VERSION_DOWNGRADE') {
+    # Another com.gathin.tvhome is on the TV: signed with another key, or a build with a higher versionCode
+    # (upstream's launcher from the phone app, say). Android will not update over either.
+    throw 'pm install refused the APK: a com.gathin.tvhome signed with another key, or a build with a higher versionCode, is already installed. The stock launcher was left untouched. Make the stock launcher Home again (cmd package set-home-activity --user 0 <its component>), uninstall the existing com.gathin.tvhome (Home, in the TV''s Settings > Apps), then run this script again.'
+}
 if ("$out" -notmatch 'Success') { throw 'pm install failed; the stock launcher was left untouched' }
 # Stop the instance Android restarted mid-update, which can come up non-occluding (see build-and-install.sh,
 # #1101), and write back a key helper the force stop took off the list. Through stdin: Windows PowerShell 5.1

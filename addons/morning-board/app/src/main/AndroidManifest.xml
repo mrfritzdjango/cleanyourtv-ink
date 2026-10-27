@@ -6,7 +6,8 @@
 
     <!-- Your own Apps Script, for today's events and tasks, and to mark a task done. -->
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- The 07:00 board: an alarm-clock alarm, set again after a reboot, that wakes the screen. -->
+    <!-- The morning board's alarm, off unless wake_hour is set (options.xml): an alarm-clock alarm, set again after a
+         reboot, that wakes the screen. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -43,15 +44,9 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-            <!-- Clean Your TV module card (docs/specs/card.md): the tile shows as "Today" once the owner says Show. -->
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="com.gathin.tvhome.category.DOCK_CARD" />
-            </intent-filter>
-            <meta-data android:name="com.gathin.tvhome.card" android:resource="@xml/module_card" />
         </activity>
 
-        <!-- The 07:00 alarm's way in: not exported, so no other app can open the board and wake the screen. -->
+        <!-- The morning alarm's way in: not exported, so no other app can open the board and wake the screen. -->
         <activity-alias
             android:name=".MorningAlarm"
             android:exported="false"

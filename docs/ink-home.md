@@ -22,8 +22,9 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
 - **The previews**: while Calendar or Tasks is selected, today's events or your open tasks appear in the middle of
   three equal columns, level with the first row, whether a song plays or not, read from Today (Home itself has no network). The next event is bold and moves on with the clock.
 - **Now playing**: while Spotify plays, the song sits at the top right, level with Calendar: the cover in shades of ink,
-  three small bars that step up and down while it plays (flat once paused), NOW PLAYING (PAUSED, for ten minutes, once paused), the song and the artist, beside the Calendar or Tasks
-  preview, which never stacks under it. With the Spotify row selected, a larger view with the same bars, the album and a progress line takes its place. It comes from Today's
+  the menagerie's collared kingfisher perched on its top edge (it bows and notes rise from its beak while the song
+  plays; it sits still once paused), NOW PLAYING (PAUSED, for ten minutes, once paused), the song and the artist, beside the Calendar or Tasks
+  preview, which never stacks under it. With the Spotify row selected, a larger view with the album, a progress line and three marks for the keys takes its place. It comes from Today's
   `NowPlaying`, which you allow once over ADB ([Today's README](../addons/morning-board/README.md#4-now-playing)).
 - **Last watched**: with YouTube, Netflix, Prime Video, Apple TV or Hotstar selected, the top right shows the last
   show or video you watched in that app, for a week: a 16:9 frame in shades of ink, LAST WATCHED, the title, and the
@@ -32,7 +33,8 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
   row carries on.
 - **The animals**: every 30 seconds, at :15 and :45, one of Today's 50 ink animals crosses the whole screen in its
   own way; the remote keeps working underneath. One pass in five is TITANE (`TITANE_EVERY` in `InkHome.java`).
-- **Night ink**: light on dark. All day by default (`ink_night_always`), or 19:30 to 07:00.
+- **Night ink**: light on dark. All day by default (`ink_night_always`), or 19:30 to 07:00. Today has its own switch,
+  `night_always`; change both together ([Build settings](#build-settings)).
 
 Keys: Up and Down move the ink bar, OK opens, and on the Spotify row OK held pauses or plays (a short press opens
 Spotify when you let go), Left goes to the song before and Right to the next. Elsewhere Left and Right do nothing. Menu opens the same Settings page as the Settings row. Home on Home goes back to the top of the list.
@@ -78,7 +80,7 @@ In `launcher/app/src/main/res/values/config.xml`, then build and install as usua
 
 | Key | Default here | What it does |
 |---|---|---|
-| `ink_night_always` | `true` | Night ink all day. `false` switches between paper (07:00–19:30) and night ink. |
+| `ink_night_always` | `true` | Night ink all day. `false` switches between paper (07:00–19:30) and night ink. Set Today's `night_always` (`addons/morning-board/app/src/main/res/values/options.xml`) to the same value and rebuild both apps, or Home and Today's screens differ. |
 | `dock_apps` | YouTube, Netflix, Prime Video, Hotstar, Apple TV, Spotify | The first app rows, in this order, until they are changed on the TV in Settings → Home apps; apps that are not installed are left out. |
 
 ## What it needs from Today
@@ -96,8 +98,10 @@ these from it, and carries no copy of them:
 Home asks Today for a fresh agenda each time it comes up (at most every 5 minutes), and shows "Waiting for today's
 agenda" rather than yesterday's when the last answer is from an earlier day.
 
-The animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing block (`Playing`, `CoverView`,
-`SongBlock`) live in [`ink/`](../ink/) at the repo root and are compiled into both apps, so there is one copy of them.
+The animal player (`Animals`, `Shows`, `ShowView`, `SvgPath`) and the now-playing block (`Playing`, `Watched`,
+`CoverView`, `SongBlock`, `SongBird`) live in [`ink/`](../ink/) at the repo root and are compiled into both apps, so
+there is one copy of them. After pulling changes, rebuild and install both apps: a cover written by one version shows
+blank in the other.
 
 ## Size
 

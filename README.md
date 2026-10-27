@@ -30,7 +30,8 @@ and redraws Home as e-ink.
   Script in your own Google account feeds them: no Google sign-in on the TV, nothing shared with anyone.
   [How to connect your calendar](docs/google-calendar-tasks.md)
 - **Now playing and last watched.** While Spotify plays, the song sits at the top right with its cover in shades of
-  ink and three little bars that move with the music. Select the Spotify row for a larger view with a progress line;
+  ink and the menagerie's kingfisher perched on it, bowing with notes rising while the song plays and still once it
+  is paused. Select the Spotify row for a larger view with a progress line;
   hold OK to pause or play, Left and Right for the song before or the next. Select YouTube, Netflix, Prime Video, Apple TV or Hotstar and the top right shows the
   last thing you watched there.
 - **The Ink Menagerie.** 50 Malaysian land and sea animals, from the Malayan tapir to the whale shark and TITANE the
@@ -92,7 +93,10 @@ The agent connects to the TV over Wi-Fi, asks what you want, builds both apps on
 The whole procedure, including how to undo every step, is in [INK-PROMPT.md](INK-PROMPT.md). To debloat the TV too,
 run upstream's [PROMPT.md](PROMPT.md) first.
 
-**By hand.** You need JDK 17, the Android SDK (platform 34) and ADB access to the TV.
+**By hand.** You need JDK 17, the Android SDK (platform 34, build-tools 34.0.0) and ADB access to the TV. Gradle
+here needs JDK 17 exactly, so point `JAVA_HOME` at it before `./gradlew`: on macOS
+`export JAVA_HOME=$(/usr/libexec/java_home -v 17)`, on Linux the JDK 17 folder (for example
+`/usr/lib/jvm/java-17-openjdk-amd64`).
 
 ```bash
 git clone https://github.com/mrfritzdjango/cleanyourtv-ink.git && cd cleanyourtv-ink
@@ -102,15 +106,19 @@ git clone https://github.com/mrfritzdjango/cleanyourtv-ink.git && cd cleanyourtv
    minutes in a browser: [docs/google-calendar-tasks.md](docs/google-calendar-tasks.md). It ends with a URL and a
    key in `addons/morning-board/board.properties`.
 2. **Today**: `cd addons/morning-board && ./gradlew assembleRelease` and install
-   `app/build/outputs/apk/release/app-release.apk`.
-3. **The launcher**: `TV_HOST=<tv ip> launcher/build-and-install.sh` builds it, installs it and makes it Home. Build
-   both apps on the same computer: the launcher reads Today's agenda through a permission only an app signed with the
-   same key gets. On a Chromecast with Google TV (Wireless debugging only), `adb pair` first, then `adb install -r`
-   both APKs and `adb shell cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity`.
+   `app/build/outputs/apk/release/app-release.apk` ([how](addons/morning-board/README.md#2-build-and-install)).
+3. **The launcher**: `STOCK_LAUNCHER=none TV_HOST=<tv ip> launcher/build-and-install.sh` builds it, installs it and
+   makes it Home. `STOCK_LAUNCHER=none` keeps the stock Home enabled, so undoing is one command. Build both apps on
+   the same computer: the launcher reads Today's agenda through a permission only an app signed with the same key
+   gets. On a Chromecast with Google TV (Wireless debugging only), `adb pair` first, then `adb install -r` both APKs
+   and `adb shell cmd package set-home-activity --user 0 com.gathin.tvhome/.MainActivity`.
 4. **The screensaver**: `adb shell settings put secure screensaver_components io.github.mrfritzdjango.morningboard/.AnimalDream`
    ([details](addons/morning-board/README.md#3-the-screensaver)).
 5. **Now playing and last watched** (optional):
    `adb shell cmd notification allow_listener io.github.mrfritzdjango.morningboard/.NowPlaying`.
+
+Updating: after pulling changes, rebuild and install **both** apps. They share the code in `ink/`, and a cover from
+one version shows blank in the other.
 
 Undo: set Home and the screensaver back, then remove the two apps (Home and Today) in the TV's Settings › Apps; the
 commands are in [INK-PROMPT.md](INK-PROMPT.md#8-how-to-undo-it).

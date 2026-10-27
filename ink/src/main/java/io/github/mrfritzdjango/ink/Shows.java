@@ -193,6 +193,7 @@ public final class Shows {
         s.homeScale = b.getFloat();
         s.seconds = b.getFloat();
         s.frames = new Frame[b.getShort() & 0xFFFF];
+        if (s.frames.length == 0) return null;   // a show with nothing to play: as if it were missing
         int points = (cols + 1) * (rows + 1) * 2;
         int[] bend = new int[points];
         for (int i = 0; i < s.frames.length; i++) {

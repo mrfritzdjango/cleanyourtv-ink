@@ -19,6 +19,7 @@ import android.text.Spanned;
 import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -40,7 +41,7 @@ import java.util.concurrent.Executors;
  * The e-ink screensaver: an animal in ink (outline, halftone dots, solid marks) beside the Home's big clock. The animal
  * holds still, then every saver_still_seconds goes out on its outing (its own way of moving, from moves.bin, played by
  * ShowView) and comes back. A new animal every saver_change_minutes, night ink from night_start to night_end, and the
- * whole picture nudged a few pixels each minute so nothing burns in. While Spotify plays, the song sits at the top right
+ * whole picture, the animal's name and the hint with it, nudged a few pixels each minute so nothing burns in. While Spotify plays, the song sits at the top right
  * (NowPlaying, the same block as on Home). Used by AnimalDream and SaverActivity.
  */
 final class SaverView extends FrameLayout {
@@ -93,8 +94,11 @@ final class SaverView extends FrameLayout {
     private Animals.Animal current;
     private Shows.Show currentOuting;
     private ShowView.Drawing currentDrawing;
-    /** Counts animal changes, so a drawing that finishes after the next change is dropped. */
-    private int generation;
+    /**
+     * Counts animal changes (and the view leaving the screen), so a drawing that finishes after the next change is
+     * dropped, and one not started yet is skipped: holding Right queues one per key repeat.
+     */
+    private volatile int generation;
     /** pick(): the first outing in two seconds rather than after the usual wait. */
     private boolean soon;
 
@@ -115,8 +119,8 @@ final class SaverView extends FrameLayout {
         LayoutParams cp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
         cp.leftMargin = px(240);
         cp.bottomMargin = px(120);
-        addView(caption, cp);   // the name and the hint stay still; only the stage is nudged against burn-in
-        hint = text(22);
+        addView(caption, cp);   // outside the stage, which an outing shakes; nudged with it against burn-in (update)
+        hint = text(24);
         hint.setText(R.string.saver_hint);
         LayoutParams hp = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
         hp.leftMargin = px(240);
@@ -176,6 +180,7 @@ final class SaverView extends FrameLayout {
         main.removeCallbacksAndMessages(null);
         io.shutdownNow();
         io = null;
+        generation++;   // a drawing still being made when the saver closed schedules nothing on a view off screen
         shown = -2;   // back on screen, the animal is drawn again
     }
 
@@ -236,8 +241,10 @@ final class SaverView extends FrameLayout {
         showSong();   // also takes away a song paused for ten minutes
         if (onMinute) {
             nudge = (nudge + 1) % NUDGE.length;
-            stage.setTranslationX(px(NUDGE[nudge][0]));
-            stage.setTranslationY(px(NUDGE[nudge][1]));
+            for (View v : new View[] {stage, caption, hint}) {
+                v.setTranslationX(px(NUDGE[nudge][0]));
+                v.setTranslationY(px(NUDGE[nudge][1]));
+            }
         }
         drawn = true;
         main.postDelayed(minute, 60_000 - now % 60_000 + 50);
@@ -316,9 +323,11 @@ final class SaverView extends FrameLayout {
         Shows index = shows;
         if (io == null) return;   // off screen: it is drawn when the view comes back
         io.execute(() -> {
+            if (gen != generation) return;   // another animal since: Left or Right held, or the saver closed
             float k = width / DESIGN_WIDTH;
             Shows.Show s = index != null ? index.load(a.id, false) : null;
             if (s == null) s = ShowView.home(a, HOME_X, HOME_Y, Math.min(HOME_W / a.width, HOME_H / a.height));
+            if (gen != generation) return;
             int[] props = index != null ? index.props(a.id) : new int[0];
             ShowView.Drawing drawing = ShowView.draw(a, props, s.fit * k, inkNow, paperNow, 12 * k);
             Shows.Show ready = s;

@@ -134,8 +134,11 @@ public final class ShowView extends View {
 
     // ---- The drawing, as bitmaps: the animal, and its prop when it has one. Safe off the main thread.
 
-    /** The widest bitmap a TV's GPU is sure to draw; a bigger drawing is made smaller and scaled up on screen. */
-    private static final int MAX_BITMAP = 4096;
+    /**
+     * The widest bitmap made: a TV's GPU draws up to 4096, but at 4096 an animal is some 30 MB on a box with 1 GB.
+     * A bigger drawing is made smaller and scaled up on screen (only on a 4K interface, a little softer).
+     */
+    private static final int MAX_BITMAP = 2048;
 
     /** An animal drawn at one size: the animal, and its prop (a branch, a bar) cut down to the prop's own corner. */
     public static final class Drawing {

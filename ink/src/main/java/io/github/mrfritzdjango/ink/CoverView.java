@@ -49,6 +49,11 @@ public final class CoverView extends View {
     public void set(byte[] grey, int w, int h, int ink, int paper, boolean night) {
         tile = tile(paper, ink);
         picture = null;
+        if (grey != null && grey.length != w * h && w == h) {
+            // a square cover from a Today built with another COVER (only one of the two apps rebuilt): its own side
+            int side = (int) Math.round(Math.sqrt(grey.length));
+            if (side * side == grey.length) w = h = side;
+        }
         if (grey != null && grey.length == w * h) {
             int[] shade = new int[SHADES];
             for (int s = 0; s < SHADES; s++) shade[s] = mix(tile, ink, s / (SHADES - 1f));

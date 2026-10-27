@@ -17,6 +17,8 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.Arrays;
+
 /**
  * The now-playing block at the top right of the e-ink Home and the screensaver: the cover in shades of ink on the left, and
  * to its right NOW PLAYING (PAUSED once paused), the song and the artist; the menagerie's kingfisher perches on the cover and
@@ -24,7 +26,8 @@ import android.widget.TextView;
  * it shows that app's last show instead: a 16:9 frame, LAST WATCHED, the title and the episode with its app. No border; gone when nothing
  * is shown. The block stands {@link #overhang()} taller than the cover, above it, for the bird and its notes. It keeps to the
  * right-hand column ({@link #WIDTH_PX}): a song or artist too long for it rests at its start, glides slowly to its end, rests
- * there and slides back, again and again, rather than ending in … or pushing the block to the left.
+ * there and slides back, {@link #GLIDES} times for each song, then rests at its start, rather than ending in … or pushing
+ * the block to the left.
  */
 public final class SongBlock extends LinearLayout {
     /** Design pixels (1920 wide): the cover's side, the text sizes. */
@@ -40,6 +43,8 @@ public final class SongBlock extends LinearLayout {
     private static final float GLIDE_PX_S = 40;
     private static final long END_REST_MS = 2500;
     private static final long BACK_MS = 700;
+    /** Glides for each new song or show: enough to read it, without moving all evening on the screensaver. */
+    private static final int GLIDES = 3;
 
     private final float scale;
     /** The cover with the bird standing over it. */
@@ -58,6 +63,7 @@ public final class SongBlock extends LinearLayout {
     private ValueAnimator gliding;
     /** The glide's next step, waiting out a rest. */
     private Runnable pending;
+    private int glides;
 
     public SongBlock(Context context, Typeface regular, Typeface bold, float scale) {
         super(context);
@@ -109,7 +115,8 @@ public final class SongBlock extends LinearLayout {
         bird.setVisibility(VISIBLE);
         song.setTextColor(ink);
         artist.setTextColor(muted);
-        if (shown == null || shown.cover != p.cover || shownInk != ink) cover.set(p.cover, ink, paper, night);
+        // Home reads the song through Today's provider: each read is a new array, so the pictures are compared, not the arrays
+        if (shown == null || !Arrays.equals(shown.cover, p.cover) || shownInk != ink) cover.set(p.cover, ink, paper, night);
         shown = p;
         shownInk = ink;
         setVisibility(VISIBLE);
@@ -129,7 +136,7 @@ public final class SongBlock extends LinearLayout {
         bird.setVisibility(GONE);
         song.setTextColor(ink);
         artist.setTextColor(muted);
-        if (shownWatched == null || shownWatched.frame != w.frame || shownInk != ink) {
+        if (shownWatched == null || !Arrays.equals(shownWatched.frame, w.frame) || shownInk != ink) {
             cover.set(w.frame, Watched.FRAME_W, Watched.FRAME_H, ink, paper, night);
         }
         shownWatched = w;
@@ -175,6 +182,7 @@ public final class SongBlock extends LinearLayout {
     /** Every line back at its start, and the glide again after the rest; only while the block is on screen. */
     private void startGlide() {
         stopGlide();
+        glides = 0;
         if (getVisibility() == VISIBLE && getWindowVisibility() == VISIBLE) later(this::glide, REST_MS);
     }
 
@@ -190,6 +198,7 @@ public final class SongBlock extends LinearLayout {
     /** Out to the furthest end at an even pace, a rest there, back quickly, a rest at the start; nothing when all fit. */
     private void glide() {
         pending = null;
+        if (glides++ >= GLIDES) return;   // read by now: it rests at its start
         int far = 0;
         for (TextView t : lines) far = Math.max(far, overflow(t));
         if (far == 0) return;
@@ -268,6 +277,8 @@ public final class SongBlock extends LinearLayout {
         // one line as long as it runs (fit() bounds the view, the glide shows the rest), no … at its end
         t.setSingleLine(true);
         t.setEllipsize(null);
+        // laid out from the left even for a right-to-left title (Arabic, Jawi), so the glide from 0 shows its start
+        t.setTextDirection(TEXT_DIRECTION_LTR);
         return t;
     }
 

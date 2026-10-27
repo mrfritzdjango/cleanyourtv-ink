@@ -92,13 +92,15 @@
             </intent-filter>
         </receiver>
 
-        <!-- Home's hold-OK on the Spotify row: pause or play. Same signature permission as the refresh. -->
+        <!-- Home's keys on the Spotify row: OK held pauses or plays, Left and Right skip. Same signature permission as the refresh. -->
         <receiver
-            android:name=".PlayPauseReceiver"
+            android:name=".TransportReceiver"
             android:exported="true"
             android:permission="io.github.mrfritzdjango.morningboard.permission.AGENDA">
             <intent-filter>
                 <action android:name="io.github.mrfritzdjango.morningboard.PLAYPAUSE" />
+                <action android:name="io.github.mrfritzdjango.morningboard.PREVIOUS" />
+                <action android:name="io.github.mrfritzdjango.morningboard.NEXT" />
             </intent-filter>
         </receiver>
 

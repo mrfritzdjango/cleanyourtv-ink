@@ -8,10 +8,13 @@ import android.database.Cursor;
  */
 public final class Playing {
     public static final String[] COLUMNS = {"title", "artist", "album", "pkg", "playing", "position", "positionAt", "speed",
-            "duration", "pausedAt", "cover"};
+            "duration", "pausedAt", "cover", "skips"};
     public static final long PAUSED_SHOWN_MS = 10 * 60_000L;
     /** The cover's side in samples: one grey level per sample, 0 black to 255 white. */
     public static final int COVER = 48;
+    /** The bits of {@link #skips}. */
+    public static final int SKIP_PREVIOUS = 1;
+    public static final int SKIP_NEXT = 2;
 
     public final String title;
     public final String artist;
@@ -29,9 +32,11 @@ public final class Playing {
     public final long pausedAt;
     /** COVER × COVER grey levels, or null when the app gives no picture. */
     public final byte[] cover;
+    /** What the app lets Home do now: SKIP_PREVIOUS, SKIP_NEXT, both, or neither (an ad). */
+    public final int skips;
 
     public Playing(String title, String artist, String album, String pkg, boolean playing, long position, long positionAt,
-                   float speed, long duration, long pausedAt, byte[] cover) {
+                   float speed, long duration, long pausedAt, byte[] cover, int skips) {
         this.title = title == null ? "" : title;
         this.artist = artist == null ? "" : artist;
         this.album = album == null ? "" : album;
@@ -43,17 +48,24 @@ public final class Playing {
         this.duration = duration;
         this.pausedAt = pausedAt;
         this.cover = cover;
+        this.skips = skips;
     }
 
-    /** The provider's row, or null when nothing is playing. */
+    /** The provider's row, or null when nothing is playing. An older Today has no skips: it cannot skip. */
     public static Playing from(Cursor c) {
         if (c == null || !c.moveToFirst()) return null;
         return new Playing(c.getString(0), c.getString(1), c.getString(2), c.getString(3), c.getInt(4) != 0, c.getLong(5),
-                c.getLong(6), c.getFloat(7), c.getLong(8), c.getLong(9), c.isNull(10) ? null : c.getBlob(10));
+                c.getLong(6), c.getFloat(7), c.getLong(8), c.getLong(9), c.isNull(10) ? null : c.getBlob(10),
+                c.getColumnCount() > 11 ? c.getInt(11) : 0);
     }
 
     public Object[] row() {
-        return new Object[] {title, artist, album, pkg, playing ? 1 : 0, position, positionAt, speed, duration, pausedAt, cover};
+        return new Object[] {title, artist, album, pkg, playing ? 1 : 0, position, positionAt, speed, duration, pausedAt, cover, skips};
+    }
+
+    /** The app lets Home skip that way now: SKIP_PREVIOUS or SKIP_NEXT. */
+    public boolean canSkip(int which) {
+        return (skips & which) != 0;
     }
 
     /** Still worth showing at now (wall clock): playing, or paused less than PAUSED_SHOWN_MS ago. */

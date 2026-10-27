@@ -31,7 +31,7 @@ and redraws Home as e-ink.
   [How to connect your calendar](docs/google-calendar-tasks.md)
 - **Now playing and last watched.** While Spotify plays, the song sits at the top right with its cover in shades of
   ink and three little bars that move with the music. Select the Spotify row for a larger view with a progress line;
-  hold OK to pause or play. Select YouTube, Netflix, Prime Video, Apple TV or Hotstar and the top right shows the
+  hold OK to pause or play, Left and Right for the song before or the next. Select YouTube, Netflix, Prime Video, Apple TV or Hotstar and the top right shows the
   last thing you watched there.
 - **The Ink Menagerie.** 50 Malaysian land and sea animals, from the Malayan tapir to the whale shark and TITANE the
   titan triggerfish, each drawn in ink and halftone and animated from field research. One crosses Home every 30

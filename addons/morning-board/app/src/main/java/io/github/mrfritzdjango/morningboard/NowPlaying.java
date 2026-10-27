@@ -92,12 +92,23 @@ public final class NowPlaying extends NotificationListenerService {
         return current;
     }
 
-    /** Home's hold-OK on the Spotify row (PlayPauseReceiver): pause what plays, or play what is paused. */
+    /** Home's hold-OK on the Spotify row (TransportReceiver): pause what plays, or play what is paused. */
     static void toggle() {
         MediaController c = followed;
         if (c == null) return;
         if (playing(c)) c.getTransportControls().pause();
         else c.getTransportControls().play();
+    }
+
+    /**
+     * Home's Left and Right on the Spotify row: the song before, or the next one. Spotify's own rule: Left three seconds
+     * or more into a song goes back to its start.
+     */
+    static void skip(boolean next) {
+        MediaController c = followed;
+        if (c == null) return;
+        if (next) c.getTransportControls().skipToNext();
+        else c.getTransportControls().skipToPrevious();
     }
 
     @Override
@@ -199,10 +210,17 @@ public final class NowPlaying extends NotificationListenerService {
                     s == null ? SystemClock.elapsedRealtime() : s.getLastPositionUpdateTime(),
                     s == null ? 1f : s.getPlaybackSpeed(),
                     Math.max(0, m.getLong(MediaMetadata.METADATA_KEY_DURATION)),
-                    pausedAt, cover);
+                    pausedAt, cover, skips(s));
         }
         current = p;
         getContentResolver().notifyChange(URI, null);
+    }
+
+    /** What the app lets Home skip to now, as Playing's bits; an ad takes both away. */
+    private static int skips(PlaybackState s) {
+        long actions = s == null ? 0 : s.getActions();
+        return ((actions & PlaybackState.ACTION_SKIP_TO_PREVIOUS) != 0 ? Playing.SKIP_PREVIOUS : 0)
+                | ((actions & PlaybackState.ACTION_SKIP_TO_NEXT) != 0 ? Playing.SKIP_NEXT : 0);
     }
 
     /** The last show or video watched in each app in watch_apps, kept in Today's prefs under "watched.<package>.". */

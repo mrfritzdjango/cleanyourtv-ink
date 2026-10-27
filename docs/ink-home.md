@@ -35,7 +35,7 @@ slides, fades or glows. It is built for a TV that mostly shows a calendar, a few
 - **Night ink**: light on dark. All day by default (`ink_night_always`), or 19:30 to 07:00.
 
 Keys: Up and Down move the ink bar, OK opens, and on the Spotify row OK held pauses or plays (a short press opens
-Spotify when you let go). Menu opens the same Settings page as the Settings row. Home on Home goes back to the top of the list.
+Spotify when you let go), Left goes to the song before and Right to the next. Elsewhere Left and Right do nothing. Menu opens the same Settings page as the Settings row. Home on Home goes back to the top of the list.
 
 ## Choosing the apps
 

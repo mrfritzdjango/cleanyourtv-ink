@@ -74,7 +74,9 @@ The animals' drawings and moves are made with the tools in [`art/`](art/) and [`
 While Spotify plays on the TV (opened on the TV, or picked from your phone with Spotify Connect), the e-ink Home
 and the screensaver show the song at the top right: the cover in shades of ink, NOW PLAYING, the song and the artist.
 Paused, it reads PAUSED, and goes after ten minutes. With the Spotify row selected on Home, a larger view with the
-album and a progress line takes its place; OK opens Spotify, OK held pauses or plays.
+album and a progress line takes its place; OK opens Spotify, OK held pauses or plays, Left goes to the song before
+(or back to the start, three seconds or more in) and Right to the next. Under the line three marks, laid out like the
+remote's ring, show those keys; Left and Right fade while Spotify won't skip, during an ad.
 
 Android lets only a notification listener follow other apps' media sessions, so `NowPlaying` is one; it reads no
 notifications. It is off until you allow it once (undo: `disallow_listener` with the same name):

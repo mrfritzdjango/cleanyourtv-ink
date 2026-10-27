@@ -25,6 +25,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
@@ -71,7 +72,8 @@ import java.util.concurrent.Executors;
  * apps, Screensaver and Settings), the big clock, and while Calendar or Tasks is selected a preview of it in the middle
  * column, level with the first row, read from Today's provider because Home has no network. While Spotify plays, Today's NowPlaying puts
  * the song at the top right (cover in shades of ink, NOW PLAYING, song, artist) on every row and every settings page,
- * and with the Spotify row selected the larger view takes its place: OK opens Spotify, OK held pauses or plays. With no
+ * and with the Spotify row selected the larger view takes its place: OK opens Spotify, OK held pauses or plays, Left and
+ * Right go to the song before and the next, under three marks laid out like the remote's ring. With no
  * song and a streaming app's row selected (YouTube, Netflix…), the top right shows that app's last show instead (LAST
  * WATCHED: a 16:9 frame, the title, the episode and the app), for a week after it was watched. Selection is an inverted ink bar; the only
  * motion is the preview simply swapping, with no flash. Every 30 seconds an animal from Today crosses the whole screen in its own way
@@ -135,6 +137,8 @@ final class InkHome {
     private static final float MIDDLE_WIDTH = 480;
     /** The song preview's progress line moves on this often. */
     private static final long TICK_MS = 10_000;
+    /** A skip's mark stays inked until Spotify moves the song, or this long at most. */
+    private static final long SKIP_WAIT_MS = 3_000;
     private static final String TITANE = "titan-triggerfish";
     /** TITANE takes one pass in this many. */
     private static final int TITANE_EVERY = 5;
@@ -181,6 +185,10 @@ final class InkHome {
     private final FrameLayout preview;
     private final SongBlock songBlock;
     private final Runnable tick = this::onTick;
+    private final Runnable skipDone = () -> {
+        skipping = 0;
+        marks();
+    };
     /** The animal passing by, over everything else. */
     private final ShowView passing;
     private final ContentObserver observer;
@@ -203,6 +211,12 @@ final class InkHome {
     /** The song preview's moving parts, while it is on screen. */
     private ProgressLine progress;
     private TextView elapsed;
+    private Mark previousMark;
+    private Mark playMark;
+    private Mark nextMark;
+    /** Left or Right was pressed on the Spotify row (Playing.SKIP_PREVIOUS or SKIP_NEXT) and the song has not moved yet; 0 when not. */
+    private int skipping;
+    private Playing skippedFrom;
     /** OK went down on the song's row: it opens the app when it comes up, unless it was held (play/pause). */
     private boolean okOnSong;
     private boolean okHeld;
@@ -375,6 +389,9 @@ final class InkHome {
         activity.getContentResolver().unregisterContentObserver(songObserver);
         activity.getContentResolver().unregisterContentObserver(watchedObserver);
         okOnSong = false;
+        okHeld = false;
+        main.removeCallbacks(skipDone);
+        skipping = 0;
     }
 
     void onNewIntent() {
@@ -521,11 +538,22 @@ final class InkHome {
             }
             Playing got = p;
             main.post(() -> {
+                if (skipping != 0 && moved(skippedFrom, got)) {
+                    main.removeCallbacks(skipDone);
+                    skipping = 0;
+                }
                 song = got;
                 if (shownPreview == SONG) shownPreview = NONE;   // the preview shows the new song
                 showPreview();
             });
         });
+    }
+
+    /** Spotify has acted on a skip: another song, or the same one back near its start. */
+    private static boolean moved(Playing from, Playing to) {
+        if (to == null || !to.title.equals(from.title)) return true;
+        long now = SystemClock.elapsedRealtime();
+        return to.positionAt(now) < from.positionAt(now) - 1_000;
     }
 
     /** The last show watched in each streaming app, from Today's NowPlaying, off the main thread. */
@@ -564,7 +592,8 @@ final class InkHome {
     }
 
     // ---- Keys: up and down move the bar in the list, OK opens (held on the Spotify row: pause or play), Menu =
-    // launcher settings. Left and right do nothing. On the settings pages Back goes up one level.
+    // launcher settings. Left and right skip songs on the Spotify row, elsewhere nothing. On the settings pages Back goes
+    // up one level.
 
     boolean dispatchKeyEvent(KeyEvent event) {
         if (page != P_HOME) return pageKey(event);
@@ -579,6 +608,10 @@ final class InkHome {
             // the Spotify row opens on release, so that holding OK can pause instead
             if (ok && okOnSong && !okHeld && !event.isCanceled()) open(items.get(selected));
             if (ok) okOnSong = false;
+            if (ok && okHeld) {
+                okHeld = false;   // the middle mark lets go
+                marks();
+            }
             return true;
         }
         switch (code) {
@@ -590,6 +623,10 @@ final class InkHome {
                 break;
             case KeyEvent.KEYCODE_DPAD_LEFT:
             case KeyEvent.KEYCODE_DPAD_RIGHT:
+                // one song per press: holding the key does not run through the queue
+                if (event.getRepeatCount() == 0 && songRow(items.get(selected))) {
+                    skip(code == KeyEvent.KEYCODE_DPAD_RIGHT ? Playing.SKIP_NEXT : Playing.SKIP_PREVIOUS);
+                }
                 break;
             case KeyEvent.KEYCODE_MENU:
                 openPage(P_SETTINGS, 0);   // the same Settings page as the Settings row
@@ -603,9 +640,21 @@ final class InkHome {
                 } else if (okOnSong && !okHeld) {
                     okHeld = true;   // held: Today pauses or plays; the preview follows when Spotify says so
                     activity.sendBroadcast(new Intent(TODAY + ".PLAYPAUSE").setPackage(TODAY));
+                    marks();
                 }
         }
         return true;
+    }
+
+    /** Left or Right on the Spotify row: Today skips, if Spotify lets it; the mark stays inked until the song moves. */
+    private void skip(int which) {
+        if (!song.canSkip(which)) return;
+        skipping = which;
+        skippedFrom = song;
+        activity.sendBroadcast(new Intent(TODAY + (which == Playing.SKIP_NEXT ? ".NEXT" : ".PREVIOUS")).setPackage(TODAY));
+        main.removeCallbacks(skipDone);
+        main.postDelayed(skipDone, SKIP_WAIT_MS);
+        marks();
     }
 
     private void select(int index) {
@@ -1022,7 +1071,7 @@ final class InkHome {
         pp.rightMargin = middle ? 0 : px(216);
         pp.width = width;
         pp.topMargin = top;
-        pp.height = px(middle ? 600 : 500);   // in the middle it ends above the clock
+        pp.height = px(middle ? 600 : 560);   // either way it ends above the clock
         preview.setLayoutParams(pp);
         fillPreview();
     }
@@ -1042,6 +1091,7 @@ final class InkHome {
         main.removeCallbacks(tick);
         progress = null;
         elapsed = null;
+        previousMark = playMark = nextMark = null;
         if (shownPreview == CALENDAR) preview.addView(calendarPreview());
         else if (shownPreview == TASKS) preview.addView(tasksPreview());
         else if (shownPreview == SONG) preview.addView(songPreview(items.get(selected).label));
@@ -1049,7 +1099,7 @@ final class InkHome {
 
     /**
      * The song, larger: NOW PLAYING, the cover in shades of ink beside its title, artist and album, the progress line,
-     * the keys.
+     * the three marks.
      */
     private View songPreview(String app) {
         LinearLayout col = column();
@@ -1084,8 +1134,43 @@ final class InkHome {
             add(col, times, 12);
             onTick();
         }
-        add(col, text(26, false, "OK opens " + app + " · hold OK to " + (song.playing ? "pause" : "play"), muted), 30);
+        add(col, transport(app), 24);
         return col;
+    }
+
+    /** The remote's ring as three marks, Left · hold OK · Right, each with its key under it, then what a short OK does. */
+    private View transport(String app) {
+        LinearLayout row = row();
+        row.setGravity(Gravity.TOP);
+        previousMark = mark(row, "◀");
+        playMark = mark(row, "hold OK");
+        nextMark = mark(row, "▶");
+        TextView open = text(26, false, "OK opens " + app, muted);
+        open.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        row.addView(open, new LinearLayout.LayoutParams(0, px(64), 1f));
+        marks();
+        return row;
+    }
+
+    private Mark mark(LinearLayout row, String key) {
+        LinearLayout col = new LinearLayout(activity);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER_HORIZONTAL);
+        Mark m = new Mark();
+        col.addView(m, new LinearLayout.LayoutParams(px(64), px(64)));
+        col.addView(text(20, false, key, muted), wrap(4));
+        LinearLayout.LayoutParams lp = wrap(0);
+        lp.rightMargin = px(28);
+        row.addView(col, lp);
+        return m;
+    }
+
+    /** The three marks, as the keys and Spotify stand now: inked while a key works, faint where Spotify won't skip. */
+    private void marks() {
+        if (playMark == null) return;
+        previousMark.set(Mark.PREVIOUS, skipping == Playing.SKIP_PREVIOUS, !song.canSkip(Playing.SKIP_PREVIOUS));
+        playMark.set(song.playing ? Mark.PAUSE : Mark.PLAY, okHeld, false);
+        nextMark.set(Mark.NEXT, skipping == Playing.SKIP_NEXT, !song.canSkip(Playing.SKIP_NEXT));
     }
 
     /** The progress line and the time so far, again every TICK_MS while the song plays. */
@@ -1270,6 +1355,70 @@ final class InkHome {
             canvas.drawRect(0, h / 2 - px(1), getWidth(), h / 2 + px(1), paint);
             paint.setColor(ink);
             canvas.drawRect(0, 0, getWidth() * done, h, paint);
+        }
+    }
+
+    /**
+     * One of the song's marks, drawn on a 24-unit grid inside a 10-unit margin: inked (paper on an ink square) while its
+     * key is held or Spotify catches up, faded where Spotify won't skip.
+     */
+    private final class Mark extends View {
+        static final int PREVIOUS = 0;
+        static final int PAUSE = 1;
+        static final int PLAY = 2;
+        static final int NEXT = 3;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path path = new Path();
+        private int shape;
+        private boolean inked;
+        private boolean faint;
+
+        Mark() {
+            super(activity);
+        }
+
+        void set(int shape, boolean inked, boolean faint) {
+            this.shape = shape;
+            this.inked = inked;
+            this.faint = faint;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            if (inked) canvas.drawColor(ink);
+            paint.setColor(inked ? paper : faint ? Color.argb(70, Color.red(ink), Color.green(ink), Color.blue(ink)) : ink);
+            float margin = getWidth() * 10 / 64f;
+            float unit = (getWidth() - 2 * margin) / 24f;
+            canvas.save();
+            canvas.translate(margin, margin);
+            canvas.scale(unit, unit);
+            path.reset();
+            switch (shape) {
+                case PREVIOUS:
+                    canvas.drawRect(5, 5, 7.6f, 19, paint);
+                    triangle(19, 5, 19, 19, 8.5f, 12);
+                    break;
+                case NEXT:
+                    canvas.drawRect(16.4f, 5, 19, 19, paint);
+                    triangle(5, 5, 5, 19, 15.5f, 12);
+                    break;
+                case PAUSE:
+                    canvas.drawRect(6, 5, 10, 19, paint);
+                    canvas.drawRect(14, 5, 18, 19, paint);
+                    break;
+                default:
+                    triangle(7, 5, 7, 19, 19, 12);
+            }
+            canvas.drawPath(path, paint);
+            canvas.restore();
+        }
+
+        private void triangle(float x1, float y1, float x2, float y2, float x3, float y3) {
+            path.moveTo(x1, y1);
+            path.lineTo(x2, y2);
+            path.lineTo(x3, y3);
+            path.close();
         }
     }
 
